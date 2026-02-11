@@ -34,6 +34,7 @@ if str(PROMPT_OPT_DIR) not in sys.path:
     sys.path.insert(0, str(PROMPT_OPT_DIR))
 
 # Pipeline integration imports (from prompt_optimization codebase)
+# Wrapped in nested try-except to handle both ImportError and exceptions during module load
 try:
     from pipelines.modular_pipeline import ModularPipeline
     from schemas.contract import Contract
@@ -41,7 +42,9 @@ try:
     from utils.recall_metrics import calculate_recall_accuracy
 
     PIPELINE_AVAILABLE = True
-except ImportError as _pipeline_import_error:
+    PIPELINE_ERROR = None
+except Exception as _pipeline_import_error:
+    # Catch all exceptions including FileNotFoundError during module initialization
     PIPELINE_AVAILABLE = False
     PIPELINE_ERROR = str(_pipeline_import_error)
 
