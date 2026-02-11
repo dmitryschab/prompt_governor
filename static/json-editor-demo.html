@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Editor Demo - Prompt Governor</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .demo-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .demo-header {
+            margin-bottom: 2rem;
+        }
+        
+        .demo-header h1 {
+            margin: 0 0 0.5rem 0;
+        }
+        
+        .demo-header p {
+            color: var(--text-muted);
+            margin: 0;
+        }
+        
+        .demo-section {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+        
+        .demo-section h2 {
+            margin: 0 0 1rem 0;
+            font-size: 1.25rem;
+        }
+        
+        .editor-container {
+            margin: 1rem 0;
+        }
+        
+        .demo-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .demo-output {
+            background: var(--bg-dark);
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 200px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .feature-card {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+        }
+        
+        .feature-card h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+        }
+        
+        .feature-card p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <h1 class="app-title">JSON Editor Demo</h1>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">← Back to App</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>JSON Editor Component</h1>
+            <p>A reusable JSON editing component with validation, formatting, and line numbers.</p>
+        </div>
+
+        <div class="demo-section">
+            <h2>🚀 Live Demo</h2>
+            <div id="main-editor" class="editor-container"></div>
+            
+            <div class="demo-controls">
+                <button class="btn btn-primary" onclick="loadExampleData()">Load Example</button>
+                <button class="btn btn-secondary" onclick="loadLargeData()">Load Large JSON</button>
+                <button class="btn btn-secondary" onclick="loadInvalidData()">Load Invalid JSON</button>
+                <button class="btn btn-secondary" onclick="getCurrentValue()">Get Value</button>
+                <button class="btn btn-secondary" onclick="toggleReadOnly()">Toggle Read-Only</button>
+            </div>
+            
+            <div id="output" class="demo-output" style="display: none;"></div>
+        </div>
+
+        <div class="demo-section">
+            <h2>⚡ Features</h2>
+            <div class="feature-list">
+                <div class="feature-card">
+                    <h3>✨ Line Numbers</h3>
+                    <p>Synchronized scrolling with current line highlighting. Dynamic line number generation for any file size.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>✅ Real-time Validation</h3>
+                    <p>Instant JSON validation with error indicators in the gutter and helpful tooltips.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>📝 Format & Compact</h3>
+                    <p>Pretty print or minify JSON with toolbar buttons. Visual feedback on actions.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>🎯 Smart Editing</h3>
+                    <p>Auto-indentation, tab support, and keyboard shortcuts for efficient JSON editing.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>📊 Status Display</h3>
+                    <p>Real-time character count, line numbers, and validation status in the toolbar and footer.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>⚡ Performance</h3>
+                    <p>Debounced validation, efficient line number rendering, and 10MB file size limit.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>📖 Usage Example</h2>
+            <pre class="demo-output"><code>// Create a new editor instance
+const editor = new JSONEditor('container-id', {
+    readOnly: false,
+    lineNumbers: true,
+    height: '400px',
+    onChange: (value) => console.log('Changed:', value),
+    onValidation: (result) => console.log('Valid:', result.isValid)
+});
+
+// Set value
+editor.setValue({ name: 'Example', value: 42 });
+
+// Get value
+const json = editor.getValue();
+const parsed = editor.getParsedValue();
+
+// Check validation
+if (editor.isValid()) {
+    console.log('JSON is valid!');
+}
+
+// Format or compact
+editor.format();  // Pretty print
+editor.compact(); // Minify
+</code></pre>
+        </div>
+
+        <div class="demo-section">
+            <h2>📋 Component Details</h2>
+            <p><strong>File:</strong> <code>static/js/components/json-editor.js</code></p>
+            <p><strong>Styles:</strong> <code>static/css/style.css</code> (JSON Editor section)</p>
+            <p><strong>API Documentation:</strong> See inline JSDoc comments in the source file.</p>
+        </div>
+    </div>
+
+    <script src="js/components/json-editor.js"></script>
+    <script>
+        // Initialize the main editor
+        let editor;
+        let isReadOnly = false;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            editor = new JSONEditor('main-editor', {
+                height: '500px',
+                onChange: (value) => {
+                    // You can track changes here
+                },
+                onValidation: (result) => {
+                    // Handle validation results
+                }
+            });
+            
+            // Load example data
+            loadExampleData();
+        });
+        
+        function loadExampleData() {
+            const exampleData = {
+                "prompt": {
+                    "name": "Invoice Extraction",
+                    "description": "Extract fields from invoice documents",
+                    "version": "1.0.0",
+                    "blocks": [
+                        {
+                            "type": "system",
+                            "content": "You are an expert at extracting information from invoices. Always return valid JSON."
+                        },
+                        {
+                            "type": "user",
+                            "content": "Extract the following from the invoice:\n- Invoice number\n- Date\n- Total amount\n- Vendor name"
+                        }
+                    ],
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "invoice_number": { "type": "string" },
+                            "date": { "type": "string", "format": "date" },
+                            "total": { "type": "number" },
+                            "vendor": { "type": "string" }
+                        }
+                    }
+                }
+            };
+            
+            editor.setValue(exampleData);
+            hideOutput();
+        }
+        
+        function loadLargeData() {
+            // Generate a larger JSON structure
+            const largeData = {
+                "records": [],
+                "metadata": {
+                    "count": 100,
+                    "generated": new Date().toISOString(),
+                    "source": "demo"
+                }
+            };
+            
+            for (let i = 1; i <= 100; i++) {
+                largeData.records.push({
+                    "id": i,
+                    "name": `Item ${i}`,
+                    "value": Math.random() * 1000,
+                    "tags": ["demo", "test", `category-${i % 5}`],
+                    "nested": {
+                        "level1": {
+                            "level2": {
+                                "data": `deep-value-${i}`
+                            }
+                        }
+                    }
+                });
+            }
+            
+            editor.setValue(largeData);
+            hideOutput();
+        }
+        
+        function loadInvalidData() {
+            const invalidJson = `{
+    "name": "Test",
+    "value": 42,
+    "broken": [
+        "item1",
+        "item2"
+        "item3"
+    ],
+    "trailing": "comma",
+}`;
+            editor.setValue(invalidJson);
+            hideOutput();
+        }
+        
+        function getCurrentValue() {
+            const output = document.getElementById('output');
+            const value = editor.getValue();
+            const state = editor.getState();
+            
+            output.style.display = 'block';
+            output.textContent = `State: ${JSON.stringify(state, null, 2)}\n\nContent Preview:\n${value.substring(0, 500)}${value.length > 500 ? '...' : ''}`;
+        }
+        
+        function toggleReadOnly() {
+            isReadOnly = !isReadOnly;
+            editor.setReadOnly(isReadOnly);
+        }
+        
+        function hideOutput() {
+            document.getElementById('output').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

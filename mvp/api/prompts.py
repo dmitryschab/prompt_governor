@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from mvp.models.prompt import PromptBlock, PromptVersion
@@ -21,6 +21,7 @@ from mvp.services.storage import (
     save_index,
     save_json,
 )
+from mvp.utils.cache import CacheConfig, get_cached, invalidate_namespace, set_cached
 
 router = APIRouter(
     prefix="/api/prompts",
@@ -64,6 +65,9 @@ class PromptListResponse(BaseModel):
 
     prompts: List[PromptMetadata] = Field(..., description="List of prompt metadata")
     total: int = Field(..., description="Total number of prompts")
+    page: int = Field(default=1, description="Current page number")
+    page_size: int = Field(default=50, description="Items per page")
+    total_pages: int = Field(default=1, description="Total number of pages")
 
 
 class PromptCreateRequest(BaseModel):
@@ -272,21 +276,37 @@ def _compare_blocks(blocks_a: List[dict], blocks_b: List[dict]) -> List[BlockDif
     "",
     response_model=PromptListResponse,
     summary="List all prompts",
-    description="Returns a list of all prompts with metadata. Supports filtering by tags.",
+    description="Returns a paginated list of prompts with metadata. Supports filtering by tags.",
 )
 async def list_prompts(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page (max 100)"),
     tag: Optional[List[str]] = Query(
         None, description="Filter by tags (can specify multiple)"
     ),
 ) -> PromptListResponse:
-    """List all prompts with optional tag filtering.
+    """List prompts with pagination and optional tag filtering.
 
     Args:
+        request: FastAPI request object
+        page: Page number (1-indexed, default: 1)
+        page_size: Items per page (default: 50, max: 100)
         tag: Optional list of tags to filter by
 
     Returns:
-        PromptListResponse containing filtered prompts
+        PromptListResponse containing paginated prompts
     """
+    # Build cache key
+    cache_key = (
+        f"prompts:page={page}:size={page_size}:tags={','.join(sorted(tag or []))}"
+    )
+
+    # Try to get from cache
+    cached = await get_cached(cache_key, namespace="prompts")
+    if cached:
+        return PromptListResponse(**cached)
+
     index = load_index("prompts")
     items = index.get("items", [])
 
@@ -300,10 +320,36 @@ async def list_prompts(
                 filtered_items.append(item)
         items = filtered_items
 
-    # Convert to metadata objects
-    prompts = [_prompt_data_to_metadata(item) for item in items]
+    # Calculate pagination
+    total = len(items)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
 
-    return PromptListResponse(prompts=prompts, total=len(prompts))
+    # Ensure page is within bounds
+    if page > total_pages:
+        page = max(1, total_pages)
+
+    # Slice items for current page
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_items = items[start_idx:end_idx]
+
+    # Convert to metadata objects
+    prompts = [_prompt_data_to_metadata(item) for item in paginated_items]
+
+    result = PromptListResponse(
+        prompts=prompts,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+    # Cache the result
+    await set_cached(
+        cache_key, result.model_dump(), CacheConfig.PROMPT_LIST_TTL, namespace="prompts"
+    )
+
+    return result
 
 
 @router.get(
@@ -365,6 +411,9 @@ async def create_prompt(request: PromptCreateRequest) -> PromptVersion:
     # Update index
     _update_index_for_prompt(prompt_data, operation="add")
 
+    # Invalidate prompts cache
+    await invalidate_namespace("prompts")
+
     # Return as PromptVersion
     return PromptVersion.model_validate(prompt_data)
 
@@ -407,6 +456,9 @@ async def update_prompt(prompt_id: str, request: PromptUpdateRequest) -> PromptV
     # Update index
     _update_index_for_prompt(prompt_data, operation="add")
 
+    # Invalidate prompts cache
+    await invalidate_namespace("prompts")
+
     return PromptVersion.model_validate(prompt_data)
 
 
@@ -434,6 +486,9 @@ async def delete_prompt(prompt_id: str) -> None:
 
     # Update index
     _update_index_for_prompt(prompt_data, operation="remove")
+
+    # Invalidate prompts cache
+    await invalidate_namespace("prompts")
 
 
 @router.get(

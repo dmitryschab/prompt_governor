@@ -1020,6 +1020,472 @@ body {
 }
 
 /* ===================================================
+   LOADING SKELETONS
+   =================================================== */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-light) 25%, var(--border-light) 50%, var(--bg-light) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+  height: 1em;
+  margin-bottom: var(--space-sm);
+}
+
+.skeleton-text.short { width: 30%; }
+.skeleton-text.medium { width: 60%; }
+.skeleton-text.long { width: 90%; }
+
+.skeleton-card {
+  height: 80px;
+  margin-bottom: var(--space-md);
+}
+
+.skeleton-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+/* ===================================================
+   LOADING SPINNER COMPONENTS
+   =================================================== */
+.spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.spinner-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.spinner-overlay .spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner-overlay .spinner-message {
+  margin-top: var(--space-md);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.btn-loading .btn-text {
+  opacity: 0;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-top: -8px;
+  margin-left: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btn-primary.btn-loading::after,
+.btn-danger.btn-loading::after {
+  border-top-color: white;
+}
+
+.tab-loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px 8px;
+  background: var(--primary-light);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--primary);
+  margin-left: var(--space-sm);
+}
+
+.tab-loading-indicator::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ===================================================
+   ENHANCED FOCUS INDICATORS
+   =================================================== */
+.btn:focus-visible,
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4);
+  border-color: var(--primary);
+}
+
+.tab-button:focus-visible {
+  outline: none;
+  background: var(--primary-light);
+  border-bottom-color: var(--primary);
+}
+
+.version-item:focus-visible,
+.config-card:focus-visible,
+.history-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary);
+  border-color: var(--primary);
+}
+
+.modal-close:focus-visible {
+  outline: none;
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+/* Skip to main content link for accessibility */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--primary);
+  color: white;
+  padding: var(--space-sm) var(--space-md);
+  z-index: 10000;
+  text-decoration: none;
+  border-radius: 0 0 var(--radius-md) 0;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ===================================================
+   ENHANCED TOAST NOTIFICATIONS
+   =================================================== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast-notification {
+  pointer-events: auto;
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  animation: toast-slide-in 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast-notification.toast-success {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+}
+
+.toast-notification.toast-error {
+  background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+  color: white;
+}
+
+.toast-notification.toast-warning {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  color: white;
+}
+
+.toast-notification.toast-info {
+  background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+}
+
+.toast-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  opacity: 0.7;
+  transition: opacity 0.2s, background 0.2s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  overflow: hidden;
+}
+
+.toast-progress-bar {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  width: 100%;
+  animation: toast-progress 5s linear forwards;
+}
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* ===================================================
+   KEYBOARD SHORTCUTS HELP
+   =================================================== */
+.keyboard-shortcuts-help {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.keyboard-shortcuts-help .help-trigger {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.keyboard-shortcuts-help .help-trigger:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.keyboard-shortcuts-help .help-content {
+  position: absolute;
+  bottom: 60px;
+  right: 0;
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  padding: var(--space-lg);
+  min-width: 280px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+}
+
+.keyboard-shortcuts-help:hover .help-content,
+.keyboard-shortcuts-help:focus-within .help-content {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.keyboard-shortcuts-help h4 {
+  margin: 0 0 var(--space-md) 0;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.shortcut-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shortcut-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs) 0;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.shortcut-list li:last-child {
+  border-bottom: none;
+}
+
+.shortcut-list kbd {
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ===================================================
+   ENHANCED TRANSITIONS & ANIMATIONS
+   =================================================== */
+.tab-content {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.config-card,
+.history-item,
+.version-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ripple effect for buttons */
+.btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.btn:active::after {
+  width: 200%;
+  height: 200%;
+}
+
+.btn-primary::after,
+.btn-danger::after {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Smooth scroll for the whole page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced focus states for modals */
+.modal-content {
+  animation: modal-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Progress bar smooth animation */
+.progress-fill {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===================================================
    RESPONSIVE STYLES
    =================================================== */
 /* Tablet (768px and below) */
@@ -1126,6 +1592,52 @@ body {
     padding-right: var(--space-sm);
   }
   
+  /* Stack tab navigation vertically on mobile */
+  .tab-navigation {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .tab-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: var(--space-xs) var(--space-sm);
+  }
+  
+  .tab-item {
+    flex: 1 1 auto;
+    min-width: 80px;
+  }
+  
+  .tab-button {
+    padding: var(--space-sm) var(--space-xs);
+    font-size: 0.8125rem;
+    border-bottom: none;
+    border-radius: var(--radius-md);
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .tab-button:hover {
+    background: var(--primary-light);
+  }
+  
+  .tab-button.active {
+    background: var(--primary);
+    color: white;
+    border-bottom: none;
+  }
+  
+  .tab-icon {
+    font-size: 1.25rem;
+  }
+  
+  .tab-label {
+    font-size: 0.6875rem;
+  }
+  
   /* Buttons full width on mobile */
   .form-actions {
     flex-direction: column;
@@ -1141,15 +1653,14 @@ body {
     grid-template-columns: 1fr;
   }
   
+  .metric-card.primary {
+    transform: none;
+  }
+  
   /* Table horizontal scroll */
   .table-container {
     margin: 0 calc(-1 * var(--space-sm));
     border-radius: 0;
-  }
-  
-  /* Compact tab buttons */
-  .tab-button {
-    padding: 0.75rem;
   }
   
   /* Smaller cards */
@@ -1175,6 +1686,61 @@ body {
   
   .results-actions .btn {
     width: 100%;
+  }
+  
+  /* JSON editor height adjustment for mobile */
+  .json-editor-wrapper {
+    min-height: 300px;
+  }
+  
+  .json-editor-main {
+    min-height: 250px;
+  }
+  
+  /* Modal adjustments for mobile */
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+    margin: var(--space-sm);
+  }
+  
+  .modal-body {
+    padding: var(--space-md);
+  }
+  
+  /* Toast notifications on mobile */
+  .toast-container {
+    left: var(--space-sm);
+    right: var(--space-sm);
+    max-width: none;
+  }
+  
+  .toast-notification {
+    width: 100%;
+  }
+  
+  /* Keyboard shortcuts help reposition */
+  .keyboard-shortcuts-help {
+    bottom: 80px;
+    right: var(--space-sm);
+  }
+  
+  .keyboard-shortcuts-help .help-content {
+    right: 0;
+    left: auto;
+    min-width: 260px;
+    max-width: calc(100vw - 40px);
+  }
+  
+  /* Skeleton adjustments */
+  .skeleton-card {
+    height: 60px;
+  }
+  
+  /* Spinner overlay on mobile */
+  .spinner-overlay .spinner {
+    width: 36px;
+    height: 36px;
   }
 }
 

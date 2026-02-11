@@ -1,0 +1,95 @@
+# Environment Variables
+# Never commit .env files - they contain secrets!
+.env
+.env.local
+.env.*.local
+
+# Python
+# ------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+# --------------------
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+# ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+# -------
+.coverage
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
+# Data directories (user content)
+# -------------------------------
+# Note: These are mounted as volumes in Docker
+# Don't commit user data or cache files
+data/runs/*
+data/runs/**
+!data/runs/.gitkeep
+
+# Document uploads
+documents/*
+documents/**
+!documents/.gitkeep
+
+# Ground truth files (may contain sensitive data)
+ground_truth/*
+ground_truth/**
+!ground_truth/.gitkeep
+
+# Cache files (regenerable)
+cache/*
+cache/**
+!cache/.gitkeep
+
+# Logs
+# ----
+*.log
+logs/
+log/
+
+# Docker
+# ------
+.dockerignore
+docker-compose.override.yml
+
+# Temporary files
+# ---------------
+tmp/
+temp/
+*.tmp

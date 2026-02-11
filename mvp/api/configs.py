@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, field_validator
 
 from mvp.models.config import ModelConfig
@@ -24,6 +24,7 @@ from mvp.services.storage import (
     save_index,
     save_json,
 )
+from mvp.utils.cache import CacheConfig, get_cached, invalidate_namespace, set_cached
 
 router = APIRouter(
     prefix="/api/configs",
@@ -52,6 +53,9 @@ class ConfigListResponse(BaseModel):
 
     configs: List[ConfigMetadata] = Field(..., description="List of configurations")
     total: int = Field(..., description="Total number of configurations")
+    page: int = Field(default=1, description="Current page number")
+    page_size: int = Field(default=50, description="Items per page")
+    total_pages: int = Field(default=1, description="Total number of pages")
 
 
 class ConfigCreateRequest(BaseModel):
@@ -225,23 +229,63 @@ def _remove_from_index(config_id: str) -> None:
     "",
     response_model=ConfigListResponse,
     summary="List all configurations",
-    description="Returns a list of all model configurations with metadata.",
+    description="Returns a paginated list of model configurations with metadata.",
 )
-async def list_configs() -> ConfigListResponse:
-    """List all configurations from the index.
+async def list_configs(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page (max 100)"),
+) -> ConfigListResponse:
+    """List configurations with pagination.
+
+    Args:
+        request: FastAPI request object
+        page: Page number (1-indexed, default: 1)
+        page_size: Items per page (default: 50, max: 100)
 
     Returns:
-        ConfigListResponse with list of config metadata
+        ConfigListResponse containing paginated configs
     """
+    # Build cache key
+    cache_key = f"configs:page={page}:size={page_size}"
+
+    # Try to get from cache
+    cached = await get_cached(cache_key, namespace="configs")
+    if cached:
+        return ConfigListResponse(**cached)
+
     index = load_index("configs")
     items = index.get("items", [])
 
-    configs = [ConfigMetadata.model_validate(item) for item in items]
+    # Calculate pagination
+    total = len(items)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
 
-    return ConfigListResponse(
+    # Ensure page is within bounds
+    if page > total_pages:
+        page = max(1, total_pages)
+
+    # Slice items for current page
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_items = items[start_idx:end_idx]
+
+    configs = [ConfigMetadata.model_validate(item) for item in paginated_items]
+
+    result = ConfigListResponse(
         configs=configs,
-        total=len(configs),
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
     )
+
+    # Cache the result
+    await set_cached(
+        cache_key, result.model_dump(), CacheConfig.CONFIG_LIST_TTL, namespace="configs"
+    )
+
+    return result
 
 
 @router.get(
@@ -303,6 +347,9 @@ async def create_config(request: ConfigCreateRequest) -> ModelConfig:
     # Update index
     _update_index(config)
 
+    # Invalidate configs cache
+    await invalidate_namespace("configs")
+
     return config
 
 
@@ -359,6 +406,9 @@ async def update_config(
     # Update index (name might have changed)
     _update_index(config)
 
+    # Invalidate configs cache
+    await invalidate_namespace("configs")
+
     return config
 
 
@@ -398,5 +448,8 @@ async def delete_config(config_id: str) -> None:
 
     # Update index
     _remove_from_index(config_id)
+
+    # Invalidate configs cache
+    await invalidate_namespace("configs")
 
     return None

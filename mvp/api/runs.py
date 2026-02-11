@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from mvp.models import Run, SuccessResponse, ListResponse
@@ -27,6 +27,7 @@ from mvp.services.storage import (
     save_index,
     save_json,
 )
+from mvp.utils.cache import CacheConfig, get_cached, invalidate_namespace, set_cached
 
 router = APIRouter(
     prefix="/api/runs",
@@ -76,6 +77,9 @@ class RunListResponse(BaseModel):
 
     runs: List[RunMetadata] = Field(..., description="List of run metadata")
     total: int = Field(..., description="Total number of runs")
+    page: int = Field(default=1, description="Current page number")
+    page_size: int = Field(default=50, description="Items per page")
+    total_pages: int = Field(default=1, description="Total number of pages")
 
 
 class RunCreateRequest(BaseModel):
@@ -458,9 +462,12 @@ def _create_comparison_summary(
     "",
     response_model=RunListResponse,
     summary="List all runs",
-    description="Returns a list of all runs with metadata. Supports filtering by prompt_id, config_id, document_name, and status.",
+    description="Returns a paginated list of runs with metadata. Supports filtering by prompt_id, config_id, document_name, and status.",
 )
 async def list_runs(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page (max 100)"),
     prompt_id: Optional[str] = Query(None, description="Filter by prompt ID"),
     config_id: Optional[str] = Query(None, description="Filter by config ID"),
     document_name: Optional[str] = Query(None, description="Filter by document name"),
@@ -468,17 +475,37 @@ async def list_runs(
         None, description="Filter by status (pending/running/completed/failed)"
     ),
 ) -> RunListResponse:
-    """List all runs with optional filtering.
+    """List runs with pagination and optional filtering.
 
     Args:
+        request: FastAPI request object
+        page: Page number (1-indexed, default: 1)
+        page_size: Items per page (default: 50, max: 100)
         prompt_id: Optional filter by prompt ID
         config_id: Optional filter by config ID
         document_name: Optional filter by document name
         status: Optional filter by status
 
     Returns:
-        RunListResponse containing filtered runs
+        RunListResponse containing paginated runs
     """
+    # Build cache key from filters
+    filter_parts = [f"page={page}", f"size={page_size}"]
+    if prompt_id:
+        filter_parts.append(f"prompt={prompt_id}")
+    if config_id:
+        filter_parts.append(f"config={config_id}")
+    if document_name:
+        filter_parts.append(f"doc={document_name}")
+    if status:
+        filter_parts.append(f"status={status}")
+    cache_key = "runs:" + ":".join(filter_parts)
+
+    # Try to get from cache
+    cached = await get_cached(cache_key, namespace="runs")
+    if cached:
+        return RunListResponse(**cached)
+
     index = load_index("runs")
     items = index.get("items", [])
 
@@ -495,10 +522,32 @@ async def list_runs(
     if status:
         items = [item for item in items if item.get("status") == status]
 
-    # Convert to metadata objects
-    runs = [_run_data_to_metadata(item) for item in items]
+    # Calculate pagination
+    total = len(items)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
 
-    return RunListResponse(runs=runs, total=len(runs))
+    # Ensure page is within bounds
+    if page > total_pages:
+        page = max(1, total_pages)
+
+    # Slice items for current page
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_items = items[start_idx:end_idx]
+
+    # Convert to metadata objects
+    runs = [_run_data_to_metadata(item) for item in paginated_items]
+
+    result = RunListResponse(
+        runs=runs, total=total, page=page, page_size=page_size, total_pages=total_pages
+    )
+
+    # Cache the result (short TTL since runs change frequently)
+    await set_cached(
+        cache_key, result.model_dump(), CacheConfig.RUN_LIST_TTL, namespace="runs"
+    )
+
+    return result
 
 
 @router.get(
@@ -579,6 +628,9 @@ async def create_run(
     # Update index
     _update_index_for_run(run_data, operation="add")
 
+    # Invalidate runs cache
+    await invalidate_namespace("runs")
+
     # Queue for async execution
     background_tasks.add_task(
         execute_run,
@@ -619,6 +671,9 @@ async def delete_run(run_id: str) -> None:
 
     # Update index
     _update_index_for_run(run_data, operation="remove")
+
+    # Invalidate runs cache
+    await invalidate_namespace("runs")
 
 
 @router.get(

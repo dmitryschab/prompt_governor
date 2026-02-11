@@ -554,12 +554,19 @@
          * Show a toast notification
          * @param {string} message - Message to display
          * @param {string} type - Type: 'success', 'error', 'warning', 'info'
-         * @param {number} duration - Duration in ms
+         * @param {number} duration - Duration in ms (default 5000ms)
          */
-        showToast(message, type = 'info', duration = CONFIG.TOAST_DURATION) {
-            // Remove existing toasts
-            const existing = document.querySelector('.toast-notification');
-            if (existing) existing.remove();
+        showToast(message, type = 'info', duration = 5000) {
+            // Get or create toast container
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                container.setAttribute('role', 'region');
+                container.setAttribute('aria-label', 'Notifications');
+                document.body.appendChild(container);
+            }
             
             // Create toast element
             const toast = document.createElement('div');
@@ -576,73 +583,48 @@
             };
             
             toast.innerHTML = `
-                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-icon" aria-hidden="true">${icons[type] || icons.info}</span>
                 <span class="toast-message">${this.escapeHtml(message)}</span>
                 <button class="toast-close" aria-label="Close notification">×</button>
+                <div class="toast-progress" aria-hidden="true">
+                    <div class="toast-progress-bar"></div>
+                </div>
             `;
             
-            // Add styles if not present
-            if (!document.getElementById('toast-styles')) {
-                const style = document.createElement('style');
-                style.id = 'toast-styles';
-                style.textContent = `
-                    .toast-notification {
-                        position: fixed;
-                        top: 20px;
-                        right: 20px;
-                        padding: 12px 20px;
-                        background: #333;
-                        color: white;
-                        border-radius: 6px;
-                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                        display: flex;
-                        align-items: center;
-                        gap: 12px;
-                        z-index: 10000;
-                        animation: slideIn 0.3s ease;
-                        max-width: 400px;
-                    }
-                    .toast-notification.toast-success { background: #28a745; }
-                    .toast-notification.toast-error { background: #dc3545; }
-                    .toast-notification.toast-warning { background: #ffc107; color: #333; }
-                    .toast-notification.toast-info { background: #17a2b8; }
-                    .toast-icon { font-weight: bold; font-size: 16px; }
-                    .toast-message { flex: 1; }
-                    .toast-close {
-                        background: none;
-                        border: none;
-                        color: inherit;
-                        font-size: 20px;
-                        cursor: pointer;
-                        padding: 0;
-                        width: 24px;
-                        height: 24px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                    @keyframes slideOut {
-                        from { transform: translateX(0); opacity: 1; }
-                        to { transform: translateX(100%); opacity: 0; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-            
-            // Add to DOM
-            document.body.appendChild(toast);
+            // Add to container
+            container.appendChild(toast);
             
             // Close button handler
-            toast.querySelector('.toast-close').addEventListener('click', () => {
+            const closeBtn = toast.querySelector('.toast-close');
+            closeBtn.addEventListener('click', () => {
                 this.hideToast(toast);
             });
             
             // Auto-hide
-            setTimeout(() => this.hideToast(toast), duration);
+            const autoHideTimer = setTimeout(() => {
+                this.hideToast(toast);
+            }, duration);
+            
+            // Pause auto-hide on hover
+            toast.addEventListener('mouseenter', () => {
+                const progressBar = toast.querySelector('.toast-progress-bar');
+                if (progressBar) {
+                    progressBar.style.animationPlayState = 'paused';
+                }
+            });
+            
+            toast.addEventListener('mouseleave', () => {
+                const progressBar = toast.querySelector('.toast-progress-bar');
+                if (progressBar) {
+                    progressBar.style.animationPlayState = 'running';
+                }
+            });
+            
+            // Limit number of toasts (max 3)
+            const toasts = container.querySelectorAll('.toast-notification');
+            if (toasts.length > 3) {
+                toasts[0].remove();
+            }
         },
         
         /**
@@ -2273,6 +2255,284 @@
     };
 
     // ============================================
+    // KEYBOARD SHORTCUTS MANAGER
+    // ============================================
+    const KeyboardShortcuts = {
+        shortcuts: new Map(),
+        isEnabled: true,
+
+        /**
+         * Initialize keyboard shortcuts
+         */
+        init() {
+            this.registerDefaults();
+            this.setupGlobalListener();
+            this.addHelpButton();
+        },
+
+        /**
+         * Register default keyboard shortcuts
+         */
+        registerDefaults() {
+            // Tab switching: Cmd/Ctrl + 1/2/3
+            this.register('1', (e) => {
+                e.preventDefault();
+                Tabs.showTab('prompts');
+                Utils.showToast('Switched to Prompts tab', 'info', 2000);
+            }, { ctrl: true, description: 'Switch to Prompts tab' });
+
+            this.register('2', (e) => {
+                e.preventDefault();
+                Tabs.showTab('configs');
+                Utils.showToast('Switched to Configs tab', 'info', 2000);
+            }, { ctrl: true, description: 'Switch to Configs tab' });
+
+            this.register('3', (e) => {
+                e.preventDefault();
+                Tabs.showTab('runs');
+                Utils.showToast('Switched to Run & Results tab', 'info', 2000);
+            }, { ctrl: true, description: 'Switch to Run tab' });
+
+            // Save: Cmd/Ctrl + S
+            this.register('s', (e) => {
+                e.preventDefault();
+                const currentTab = Tabs.getCurrentTab();
+                if (currentTab === 'prompts') {
+                    const saveBtn = document.getElementById('save-version-btn');
+                    if (saveBtn) saveBtn.click();
+                } else if (currentTab === 'configs') {
+                    const form = document.getElementById('config-form');
+                    if (form) form.dispatchEvent(new Event('submit'));
+                }
+            }, { ctrl: true, description: 'Save current form' });
+
+            // Run extraction: Cmd/Ctrl + Enter
+            this.register('Enter', (e) => {
+                if (Tabs.getCurrentTab() === 'runs') {
+                    e.preventDefault();
+                    const runBtn = document.getElementById('run-extraction-btn');
+                    if (runBtn && !runBtn.disabled) {
+                        runBtn.click();
+                    }
+                }
+            }, { ctrl: true, description: 'Run extraction' });
+
+            // Close modals: Escape
+            this.register('Escape', (e) => {
+                const modals = document.querySelectorAll('.modal');
+                let closed = false;
+                modals.forEach(modal => {
+                    if (modal.style.display !== 'none' && window.getComputedStyle(modal).display !== 'none') {
+                        modal.style.display = 'none';
+                        closed = true;
+                    }
+                });
+                if (closed) {
+                    Utils.showToast('Modal closed', 'info', 1500);
+                }
+            }, { description: 'Close modals' });
+
+            // Refresh data: F5 or Cmd/Ctrl + R
+            this.register('r', (e) => {
+                e.preventDefault();
+                const currentTab = Tabs.getCurrentTab();
+                if (currentTab === 'prompts') {
+                    PromptManager.loadPrompts();
+                } else if (currentTab === 'configs') {
+                    ConfigManager.loadConfigs();
+                } else if (currentTab === 'runs') {
+                    RunManager.loadDropdowns();
+                    RunManager.loadRunHistory();
+                }
+                Utils.showToast('Data refreshed', 'success', 2000);
+            }, { ctrl: true, description: 'Refresh data' });
+
+            // Focus search: Cmd/Ctrl + F
+            this.register('f', (e) => {
+                if (Tabs.getCurrentTab() === 'prompts') {
+                    e.preventDefault();
+                    const searchInput = document.getElementById('prompt-search');
+                    if (searchInput) {
+                        searchInput.focus();
+                        searchInput.select();
+                    }
+                }
+            }, { ctrl: true, description: 'Focus search' });
+
+            // New item: Cmd/Ctrl + N
+            this.register('n', (e) => {
+                e.preventDefault();
+                const currentTab = Tabs.getCurrentTab();
+                if (currentTab === 'prompts') {
+                    const newBtn = document.getElementById('new-prompt-btn');
+                    if (newBtn) newBtn.click();
+                } else if (currentTab === 'configs') {
+                    const newBtn = document.getElementById('new-config-btn');
+                    if (newBtn) newBtn.click();
+                }
+            }, { ctrl: true, description: 'Create new item' });
+        },
+
+        /**
+         * Register a keyboard shortcut
+         * @param {string} key - Key to listen for
+         * @param {Function} handler - Handler function
+         * @param {Object} options - Options (ctrl, shift, alt, description)
+         */
+        register(key, handler, options = {}) {
+            const shortcut = { key, handler, ...options };
+            this.shortcuts.set(`${options.ctrl ? 'ctrl+' : ''}${options.shift ? 'shift+' : ''}${options.alt ? 'alt+' : ''}${key.toLowerCase()}`, shortcut);
+        },
+
+        /**
+         * Setup global keydown listener
+         */
+        setupGlobalListener() {
+            document.addEventListener('keydown', (e) => {
+                if (!this.isEnabled) return;
+
+                // Don't trigger shortcuts when typing in inputs/textareas
+                if (e.target.matches('input, textarea, select, [contenteditable]')) {
+                    // Allow Escape and Cmd/Ctrl shortcuts even in inputs
+                    if (e.key !== 'Escape' && !e.ctrlKey && !e.metaKey) {
+                        return;
+                    }
+                }
+
+                const key = e.key.toLowerCase();
+                const modifier = `${e.ctrlKey || e.metaKey ? 'ctrl+' : ''}${e.shiftKey ? 'shift+' : ''}${e.altKey ? 'alt+' : ''}${key}`;
+
+                const shortcut = this.shortcuts.get(modifier);
+                if (shortcut) {
+                    shortcut.handler(e);
+                }
+            });
+        },
+
+        /**
+         * Add help button with keyboard shortcuts info
+         */
+        addHelpButton() {
+            const helpDiv = document.createElement('div');
+            helpDiv.className = 'keyboard-shortcuts-help';
+            helpDiv.innerHTML = `
+                <button class="help-trigger" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">
+                    ⌘
+                </button>
+                <div class="help-content">
+                    <h4>Keyboard Shortcuts</h4>
+                    <ul class="shortcut-list">
+                        ${Array.from(this.shortcuts.values())
+                            .filter(s => s.description)
+                            .map(s => `
+                                <li>
+                                    <span>${s.description}</span>
+                                    <kbd>${s.ctrl ? (navigator.platform.indexOf('Mac') > -1 ? '⌘' : 'Ctrl+') : ''}${s.key === 'Enter' ? '↵' : s.key}</kbd>
+                                </li>
+                            `).join('')}
+                    </ul>
+                </div>
+            `;
+            document.body.appendChild(helpDiv);
+        },
+
+        /**
+         * Enable/disable keyboard shortcuts
+         * @param {boolean} enabled - Whether shortcuts are enabled
+         */
+        setEnabled(enabled) {
+            this.isEnabled = enabled;
+        }
+    };
+
+    // ============================================
+    // LOADING SKELETON UTILITIES
+    // ============================================
+    const SkeletonLoader = {
+        /**
+         * Show skeleton loading state for a container
+         * @param {string} containerId - Container element ID
+         * @param {string} type - Skeleton type: 'text', 'card', 'list', 'table'
+         * @param {number} count - Number of skeleton items
+         */
+        show(containerId, type = 'card', count = 3) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            container.dataset.originalContent = container.innerHTML;
+            container.innerHTML = this.generate(type, count);
+            container.classList.add('skeleton-active');
+        },
+
+        /**
+         * Hide skeleton and restore original content
+         * @param {string} containerId - Container element ID
+         */
+        hide(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (container.dataset.originalContent !== undefined) {
+                container.innerHTML = container.dataset.originalContent;
+                delete container.dataset.originalContent;
+            }
+            container.classList.remove('skeleton-active');
+        },
+
+        /**
+         * Generate skeleton HTML
+         * @param {string} type - Skeleton type
+         * @param {number} count - Number of items
+         * @returns {string} Skeleton HTML
+         */
+        generate(type, count) {
+            const items = [];
+            for (let i = 0; i < count; i++) {
+                items.push(this.getSkeletonHtml(type));
+            }
+            return items.join('');
+        },
+
+        /**
+         * Get skeleton HTML for a specific type
+         * @param {string} type - Skeleton type
+         * @returns {string} Skeleton HTML
+         */
+        getSkeletonHtml(type) {
+            switch (type) {
+                case 'text':
+                    return `
+                        <div class="skeleton skeleton-text long"></div>
+                        <div class="skeleton skeleton-text medium"></div>
+                        <div class="skeleton skeleton-text short"></div>
+                    `;
+                case 'card':
+                    return `<div class="skeleton skeleton-card"></div>`;
+                case 'list':
+                    return `
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div class="skeleton skeleton-circle"></div>
+                            <div style="flex: 1;">
+                                <div class="skeleton skeleton-text medium"></div>
+                                <div class="skeleton skeleton-text short"></div>
+                            </div>
+                        </div>
+                    `;
+                case 'table':
+                    return `
+                        <div style="display: flex; gap: 16px; margin-bottom: 12px;">
+                            <div class="skeleton" style="width: 30%; height: 20px;"></div>
+                            <div class="skeleton" style="width: 40%; height: 20px;"></div>
+                            <div class="skeleton" style="width: 30%; height: 20px;"></div>
+                        </div>
+                    `;
+                default:
+                    return `<div class="skeleton skeleton-card"></div>`;
+            }
+        }
+    };
+
+    // ============================================
     // DATA LOADING
     // ============================================
     const DataLoader = {
@@ -2327,6 +2587,174 @@
                 console.warn('Failed to load configs:', error);
                 return [];
             }
+        }
+    };
+
+    // ============================================
+    // ACCESSIBILITY MANAGER
+    // ============================================
+    const AccessibilityManager = {
+        /**
+         * Initialize accessibility features
+         */
+        init() {
+            this.addSkipLink();
+            this.enhanceFocusManagement();
+            this.addAriaLabels();
+            this.setupFocusTrapForModals();
+        },
+
+        /**
+         * Add skip to main content link
+         */
+        addSkipLink() {
+            const skipLink = document.createElement('a');
+            skipLink.href = '#main-content';
+            skipLink.className = 'skip-link';
+            skipLink.textContent = 'Skip to main content';
+            document.body.insertBefore(skipLink, document.body.firstChild);
+
+            // Add main-content ID to main content area
+            const mainContent = document.querySelector('.main-content') || document.querySelector('main');
+            if (mainContent && !mainContent.id) {
+                mainContent.id = 'main-content';
+                mainContent.setAttribute('tabindex', '-1');
+            }
+        },
+
+        /**
+         * Enhance focus management
+         */
+        enhanceFocusManagement() {
+            // Track previously focused element before opening modals
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('show', () => {
+                    modal.dataset.previousFocus = document.activeElement?.id || '';
+                });
+
+                modal.addEventListener('hide', () => {
+                    const previousId = modal.dataset.previousFocus;
+                    if (previousId) {
+                        const previousElement = document.getElementById(previousId);
+                        if (previousElement) {
+                            previousElement.focus();
+                        }
+                    }
+                });
+            });
+
+            // Add focus indicators to interactive elements
+            document.querySelectorAll('.version-item, .config-card, .history-item').forEach(el => {
+                el.setAttribute('tabindex', '0');
+                el.setAttribute('role', 'button');
+            });
+        },
+
+        /**
+         * Add ARIA labels to elements that need them
+         */
+        addAriaLabels() {
+            // Tab buttons
+            document.querySelectorAll('.tab-button').forEach((btn, index) => {
+                if (!btn.getAttribute('aria-label')) {
+                    const label = btn.querySelector('.tab-label')?.textContent || `Tab ${index + 1}`;
+                    btn.setAttribute('aria-label', label);
+                }
+                btn.setAttribute('role', 'tab');
+            });
+
+            // Tab panels
+            document.querySelectorAll('.tab-content').forEach((panel, index) => {
+                panel.setAttribute('role', 'tabpanel');
+                if (!panel.getAttribute('aria-labelledby')) {
+                    panel.setAttribute('aria-labelledby', `tab-${index}`);
+                }
+            });
+
+            // Form inputs
+            document.querySelectorAll('.form-group input, .form-group select, .form-group textarea').forEach(input => {
+                const label = input.closest('.form-group')?.querySelector('label');
+                if (label && !input.getAttribute('aria-describedby')) {
+                    const helpId = input.id + '-help';
+                    const helpText = input.closest('.form-group')?.querySelector('.field-error, .help-text');
+                    if (helpText) {
+                        helpText.id = helpId;
+                        input.setAttribute('aria-describedby', helpId);
+                    }
+                }
+            });
+
+            // Buttons without text
+            document.querySelectorAll('button:not([aria-label])').forEach(btn => {
+                const text = btn.textContent?.trim();
+                const icon = btn.querySelector('.btn-icon')?.textContent;
+                if (!text && icon) {
+                    btn.setAttribute('aria-label', icon);
+                }
+            });
+
+            // Status indicators
+            document.querySelectorAll('.status-indicator').forEach(el => {
+                el.setAttribute('role', 'status');
+                el.setAttribute('aria-live', 'polite');
+            });
+
+            // Loading states
+            document.querySelectorAll('.loading, [data-loading]').forEach(el => {
+                el.setAttribute('aria-busy', 'true');
+            });
+        },
+
+        /**
+         * Setup focus trap for modals
+         */
+        setupFocusTrapForModals() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Tab') return;
+
+                    const focusableElements = modal.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    const firstElement = focusableElements[0];
+                    const lastElement = focusableElements[focusableElements.length - 1];
+
+                    if (e.shiftKey && document.activeElement === firstElement) {
+                        e.preventDefault();
+                        lastElement.focus();
+                    } else if (!e.shiftKey && document.activeElement === lastElement) {
+                        e.preventDefault();
+                        firstElement.focus();
+                    }
+                });
+            });
+        },
+
+        /**
+         * Announce message to screen readers
+         * @param {string} message - Message to announce
+         * @param {string} priority - Priority: 'polite' or 'assertive'
+         */
+        announce(message, priority = 'polite') {
+            let announcer = document.getElementById('sr-announcer');
+            if (!announcer) {
+                announcer = document.createElement('div');
+                announcer.id = 'sr-announcer';
+                announcer.setAttribute('aria-live', priority);
+                announcer.setAttribute('aria-atomic', 'true');
+                announcer.style.position = 'absolute';
+                announcer.style.left = '-10000px';
+                announcer.style.width = '1px';
+                announcer.style.height = '1px';
+                announcer.style.overflow = 'hidden';
+                document.body.appendChild(announcer);
+            }
+
+            announcer.setAttribute('aria-live', priority);
+            announcer.textContent = '';
+            setTimeout(() => {
+                announcer.textContent = message;
+            }, 100);
         }
     };
 
