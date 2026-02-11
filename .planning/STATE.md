@@ -2,10 +2,10 @@
 
 ## Current Position
 
-Phase: E2 - Model Config Tab ✓ COMPLETE
-Plan: E2 (Plan 2 of Phase Group E - Frontend Tabs)
+Phase: C4 - Runs API ✓ COMPLETE
+Plan: C4 (Plan 4 of Phase Group C - Backend API)
 Status: Completed 2026-02-11
-Last completed: Implemented Model Config management UI with CRUD operations, form validation, and provider-specific model suggestions
+Last completed: Implemented runs execution API with async background tasks, filtering, comparison, and full CRUD operations
 
 ## Progress
 
@@ -75,6 +75,9 @@ Phase Groups:
 | 2026-02-11 | ConfigManager module pattern | E2 Model Config Tab | Dedicated module for config tab functionality, consistent with JSONEditor pattern |
 | 2026-02-11 | Provider-specific model suggestions | E2 Model Config Tab | Improves UX with autocomplete for known models per provider |
 | 2026-02-11 | Inline form validation | E2 Model Config Tab | Real-time validation with visual feedback, prevents API errors |
+| 2026-02-11 | 202 Accepted pattern for async runs | C4 Runs API | Returns immediately with run_id while BackgroundTasks handles execution |
+| 2026-02-11 | Lightweight metadata for list views | C4 Runs API | RunMetadata for lists (performance), full Run for details |
+| 2026-02-11 | Comprehensive run comparison | C4 Runs API | Metric diffs with percentages + field-level output comparison |
 
 ## Blockers & Concerns
 
@@ -82,9 +85,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 17:45:00Z
-Stopped at: Completed Phase E2 - Model Config Tab
-Resume file: static/js/app.js
+Last session: 2026-02-11 18:30:00Z
+Stopped at: Completed Phase C4 - Runs API
+Resume file: mvp/api/runs.py
 
 ## Completed Artifacts
 
@@ -177,14 +180,17 @@ Resume file: static/js/app.js
     - `DELETE /api/configs/{id}` - Delete config
   - Provider validation (openai, anthropic, openrouter)
   - Temperature and reasoning_effort validators
-- Runs API (C4 - Stub):
-  - `mvp/api/runs.py` - Extraction runs endpoints (stub implementation)
-    - `GET /api/runs` - List runs with filtering (prompt_id, config_id, status)
-    - `GET /api/runs/{id}` - Get run details
-    - `POST /api/runs` - Create new run (queues for execution)
-    - `DELETE /api/runs/{id}` - Delete run
-     - `GET /api/runs/{id}/compare/{other_id}` - Compare two runs
-   - Full implementation requires Phase B4 (Executor Service) integration
+- Runs API (C4):
+  - `mvp/api/runs.py` - Extraction runs endpoints (full implementation)
+    - `GET /api/runs` - List runs with filtering (prompt_id, config_id, document_name, status)
+    - `GET /api/runs/{id}` - Get complete run details (Run model)
+    - `POST /api/runs` - Create and execute run (202 Accepted + BackgroundTasks)
+    - `DELETE /api/runs/{id}` - Delete run and update index
+    - `GET /api/runs/{id}/compare/{other_id}` - Compare two runs with metrics and field diffs
+  - Async execution via FastAPI BackgroundTasks
+  - Validates prompt_id, config_id, document_name before creating
+  - Lightweight RunMetadata for list views (performance)
+  - Comprehensive comparison: metric diffs + field-level output comparison
 - Model Config Tab (E2):
   - `static/js/app.js` - **ConfigManager module for model configuration UI**
     - Provider-specific model suggestions (OpenAI, Anthropic, OpenRouter)
