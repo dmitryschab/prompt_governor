@@ -2,15 +2,20 @@
 
 ## Current Position
 
-Phase: A5 - Environment Configuration
-Plan: A5 (Plan 5 of Phase Group A)
-Status: Completed
+Phase: A4 - Requirements File ✓ COMPLETE
+Plan: A4 (Plan 4 of Phase Group A)
+Status: Completed 2026-02-11
+Last completed: Created requirements.mvp.txt with FastAPI stack
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 1 (A5)
+Completed: 1 (A4)
 In Progress: 0
+
+Phase A: Infrastructure Bootstrap
+- [x] A4: Requirements File (COMPLETE)
+- [ ] A5: Environment Configuration (pending)
 
 Phase Groups:
 - [~] Phase Group A: Infrastructure (A1-A5) - A5 COMPLETE
@@ -28,10 +33,9 @@ Phase Groups:
 
 | Date | Decision | Context | Impact |
 |------|----------|---------|--------|
-| 2026-02-11 | Use .env.example pattern | Standard practice for environment configuration | Developers copy template and add secrets locally |
-| 2026-02-11 | Include comprehensive comments in env file | Make config self-documenting | Reduces onboarding time, no external docs needed |
-| 2026-02-11 | Use .gitkeep for data dirs | Preserve directory structure while ignoring content | Clean git repo with data dirs pre-created |
-| 2026-02-11 | Established mvp/ as root Python package | Code Documentation Setup | All Python modules will reside under mvp/ directory |
+| 2026-02-11 | Pin minimum versions with `>=` | A4 Requirements | Allow patch updates while maintaining compatibility |
+| 2026-02-11 | Use uvicorn[standard] extras | A4 Requirements | Performance optimizations for production |
+| 2026-02-11 | MVP filename convention | A4 Requirements | Distinguish from future production requirements |
 
 ## Blockers & Concerns
 
@@ -39,12 +43,13 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11
-Stopped at: Completed Phase I1 - Code Documentation Setup
-Resume file: .planning/phases/I1-Code-Documentation-Setup/I1-01-SUMMARY.md
+Last session: 2026-02-11 13:06:37Z
+Stopped at: Completed Phase A4 - Requirements File
+Resume file: .planning/phases/A-bootstrap/A4-SUMMARY.md
 
 ## Completed Artifacts
 
+- `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/requirements.mvp.txt` - Python dependencies (A4)
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/.env.example` - Environment template
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/.gitignore` - Git ignore rules
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/` - Python package structure
