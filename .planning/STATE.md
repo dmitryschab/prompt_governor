@@ -2,15 +2,15 @@
 
 ## Current Position
 
-Phase: A2 - Docker Compose Configuration ✓ COMPLETE
-Plan: A2 (Plan 2 of Phase Group A - Infrastructure)
+Phase: B2 - Data Models ✓ COMPLETE
+Plan: B2 (Plan 2 of Phase Group B - Backend Core)
 Status: Completed 2026-02-11
-Last completed: Created docker-compose.yml with volume mounts and hot reload
+Last completed: Created Pydantic models for PromptVersion, ModelConfig, and Run
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 7 (A1, A2, A3, A4, B1, C3, D1)
+Completed: 8 (A1, A2, A3, A4, B1, B2, C3, D1)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
@@ -20,9 +20,15 @@ Phase A: Infrastructure Bootstrap
 - [x] A4: Requirements File (COMPLETE)
 - [ ] A5: Environment Configuration (pending)
 
+Phase B: Backend Core
+- [x] B1: Storage Service (COMPLETE)
+- [x] B2: Data Models (COMPLETE - Pydantic models created and validated)
+- [ ] B3: Prompt Service (pending)
+- [ ] B4: Config Service (pending)
+
 Phase Groups:
 - [~] Phase Group A: Infrastructure (A1-A5) - A1, A2, A3, A4 COMPLETE
-- [~] Phase Group B: Backend Core (B1-B4) - B1 COMPLETE
+- [~] Phase Group B: Backend Core (B1-B4) - B1, B2 COMPLETE
 - [~] Phase Group C: Backend API (C1-C5) - C3 COMPLETE
 - [~] Phase Group D: Frontend Core (D1-D4) - D1 COMPLETE
 - [ ] Phase Group E: Frontend Tabs (E1-E3)
@@ -47,6 +53,9 @@ Phase Groups:
 | 2026-02-11 | Mount prompt_optimization read-only | A2 Docker Compose | Prevents accidental modifications to existing codebase |
 | 2026-02-11 | Override CMD in compose | A2 Docker Compose | Keeps Dockerfile generic while allowing compose-specific config |
 | 2026-02-11 | Use :ro for documents/ground_truth | A2 Docker Compose | Protects source data while allowing cache/data writes |
+| 2026-02-11 | Pydantic v2 BaseModel with field validators | B2 Data Models | Type safety and validation for all data structures |
+| 2026-02-11 | Nested PromptBlock model | B2 Data Models | Structured prompt content with title/body/comment |
+| 2026-02-11 | Provider enum pattern (regex validation) | B2 Data Models | Restricts providers to known values |
 
 ## Blockers & Concerns
 
@@ -54,9 +63,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 15:30:00Z
-Stopped at: Completed Phase A2 - Docker Compose Configuration
-Resume file: .planning/phases/A-infrastructure/A2-SUMMARY.md
+Last session: 2026-02-11 13:11:00Z
+Stopped at: Completed Phase B2 - Data Models
+Resume file: .planning/phases/B-backend/B2-SUMMARY.md
 
 ## Completed Artifacts
 
@@ -83,3 +92,7 @@ Resume file: .planning/phases/A-infrastructure/A2-SUMMARY.md
   - Health endpoint: /api/health
   - Volume test endpoint: /api/test/volumes
   - CORS configured for frontend development
+- Data Models (B2):
+  - `mvp/models/prompt.py` - PromptVersion with PromptBlock nested model
+  - `mvp/models/config.py` - ModelConfig with provider validation
+  - `mvp/models/run.py` - Run model with status tracking
