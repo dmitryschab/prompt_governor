@@ -141,3 +141,13 @@ Resume file: .planning/phases/I-documentation/I2-SUMMARY.md
   - `mvp/models/__init__.py` - Updated exports
     - All domain models (PromptVersion, ModelConfig, Run)
     - All response schemas (ErrorResponse, ListResponse, SuccessResponse, etc.)
+- Prompt API (C1):
+  - `mvp/api/prompts.py` - Prompt management endpoints (433 lines)
+    - `GET /api/prompts` - List all prompts with tag filtering
+    - `GET /api/prompts/{id}` - Get prompt by ID
+    - `POST /api/prompts` - Create new prompt version
+    - `PUT /api/prompts/{id}` - Update prompt
+    - `DELETE /api/prompts/{id}` - Delete prompt
+    - `GET /api/prompts/{id}/diff/{other_id}` - Compare two versions
+  - Block-level diff comparison with added/removed/modified tracking
+  - Index-based listing for efficient metadata retrieval
