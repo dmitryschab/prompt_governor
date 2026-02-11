@@ -6,11 +6,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
+from mvp.api import configs, documents
+
 app = FastAPI(
     title="Prompt Governor",
     description="Lightweight prompt optimization tool for contract extraction",
     version="0.1.0",
 )
+
+# Include API routers
+app.include_router(configs.router)
+app.include_router(documents.router)
 
 # Configure CORS
 app.add_middleware(
