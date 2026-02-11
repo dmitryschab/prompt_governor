@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 
-from mvp.api import configs, documents, prompts
+from mvp.api import api_router
 
 app = FastAPI(
     title="Prompt Governor",
@@ -14,10 +14,8 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Include API routers
-app.include_router(configs.router)
-app.include_router(documents.router)
-app.include_router(prompts.router)
+# Include API router
+app.include_router(api_router)
 
 # Configure CORS
 app.add_middleware(
