@@ -2,15 +2,15 @@
 
 ## Current Position
 
-Phase: D2 - CSS Styling ✓ COMPLETE
-Plan: D2 (Plan 2 of Phase Group D - Frontend Core)
+Phase: D3 - JavaScript Core ✓ COMPLETE
+Plan: D3 (Plan 3 of Phase Group D - Frontend Core)
 Status: Completed 2026-02-11
-Last completed: Implemented comprehensive CSS with variables, components, and responsive design
+Last completed: Enhanced JavaScript with tab switching, API client, state management, and utilities
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 9 (A1, A2, A3, A4, B1, B2, C3, D1, D2)
+Completed: 10 (A1, A2, A3, A4, B1, B2, C3, D1, D2, D3)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
@@ -30,7 +30,7 @@ Phase Groups:
 - [~] Phase Group A: Infrastructure (A1-A5) - A1, A2, A3, A4 COMPLETE
 - [~] Phase Group B: Backend Core (B1-B4) - B1, B2 COMPLETE
 - [~] Phase Group C: Backend API (C1-C5) - C3 COMPLETE
-- [~] Phase Group D: Frontend Core (D1-D4) - D1, D2 COMPLETE
+- [~] Phase Group D: Frontend Core (D1-D4) - D1, D2, D3 COMPLETE
 - [ ] Phase Group E: Frontend Tabs (E1-E3)
 - [ ] Phase Group F: Integration (F1-F2)
 - [ ] Phase Group G: Testing (G1-G4)
@@ -58,6 +58,11 @@ Phase Groups:
 | 2026-02-11 | Provider enum pattern (regex validation) | B2 Data Models | Restricts providers to known values |
 | 2026-02-11 | CSS Variables over preprocessor | D2 CSS Styling | Native custom properties for runtime theming, no build step |
 | 2026-02-11 | Mobile-first responsive approach | D2 CSS Styling | Base mobile styles, enhanced for larger screens |
+| 2026-02-11 | IIFE pattern for JS encapsulation | D3 JavaScript Core | Avoids global namespace pollution, clean module structure |
+| 2026-02-11 | Custom APIError class | D3 JavaScript Core | Distinguishes API errors with status codes and data |
+| 2026-02-11 | Exponential backoff retries | D3 JavaScript Core | Reduces server load: 1s, 2s, 3s delays between retries |
+| 2026-02-11 | localStorage for state persistence | D3 JavaScript Core | Simple client-side storage for tab state and preferences |
+| 2026-02-11 | AbortController for timeouts | D3 JavaScript Core | Proper request cancellation, 30s timeout protection |
 
 ## Blockers & Concerns
 
@@ -65,9 +70,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 13:12:00Z
-Stopped at: Completed Phase D2 - CSS Styling
-Resume file: .planning/phases/D-frontend/D2-SUMMARY.md
+Last session: 2026-02-11 15:12:00Z
+Stopped at: Completed Phase D3 - JavaScript Core
+Resume file: .planning/phases/D-frontend/D3-SUMMARY.md
 
 ## Completed Artifacts
 
@@ -87,7 +92,14 @@ Resume file: .planning/phases/D-frontend/D2-SUMMARY.md
     - Utility classes (.hidden, .active, .loading, .error)
     - Responsive breakpoints (480px, 768px, 1200px)
     - Print styles for export
-  - `js/app.js` - Tab switching and API client (D1)
+  - `js/app.js` - **Enhanced JavaScript with full utility suite (D3)**
+    - Tab switching with URL hash deep linking and keyboard shortcuts (Alt+1/2/3)
+    - API client with retries (3x), timeouts (30s), and error handling
+    - State management with listeners and localStorage persistence
+    - Utility functions: formatDate, formatNumber, showToast, loading indicators
+    - Error handling with user-friendly messages
+    - API status monitoring with periodic health checks
+    - 1078 lines of modular, documented JavaScript
 - Directory structure: `data/`, `documents/`, `ground_truth/`, `cache/` (A3)
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/services/storage.py` - File-based JSON storage utilities (B1)
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/api/documents.py` - FastAPI documents endpoints (C3)
