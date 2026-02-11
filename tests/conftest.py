@@ -19,11 +19,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-# Set test environment before importing app
-os.environ["DOCUMENTS_PATH"] = "/tmp/test_documents"
-os.environ["DATA_DIR"] = "/tmp/test_data"
-
-from mvp.main import app
 from mvp.services.storage import save_json, load_index, save_index, get_collection_path
 
 
@@ -101,9 +96,12 @@ def client(
         if doc_file.is_file():
             shutil.copy2(doc_file, actual_docs_dir / doc_file.name)
 
-    # Patch storage module paths
+    # Patch storage module paths - must import app AFTER patching
     with patch("mvp.services.storage.DATA_DIR", test_data_dir):
         with patch("mvp.api.documents.DOCUMENTS_PATH", actual_docs_dir):
+            # Import app inside the patch context to ensure it picks up patched paths
+            from mvp.main import app
+
             with TestClient(app) as test_client:
                 yield test_client
 
