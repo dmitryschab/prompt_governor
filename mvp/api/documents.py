@@ -4,6 +4,7 @@ This module provides FastAPI endpoints for:
 - Listing available documents in the documents directory
 - Getting document metadata (size, type, modified time)
 - Filtering by file extension
+- File size validation and streaming for large files
 """
 
 import os
@@ -11,8 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
+from mvp.utils.cache import CacheConfig, get_cached, invalidate_namespace, set_cached
 
 router = APIRouter(
     prefix="/api/documents",
@@ -23,6 +26,10 @@ router = APIRouter(
 # Configuration: Path to documents directory
 # In Docker container, this will be /app/documents/
 DOCUMENTS_PATH = Path(os.environ.get("DOCUMENTS_PATH", "/app/documents"))
+
+# File size limits
+MAX_DOCUMENT_SIZE = 50 * 1024 * 1024  # 50MB limit for documents
+MAX_STREAM_SIZE = 100 * 1024 * 1024  # 100MB for streaming
 
 
 class DocumentInfo(BaseModel):
@@ -55,6 +62,9 @@ class DocumentListResponse(BaseModel):
         ..., description="List of available documents"
     )
     total: int = Field(..., description="Total number of documents")
+    skipped_large_files: int = Field(
+        default=0, description="Number of files skipped due to size limits"
+    )
 
     class Config:
         """Pydantic configuration."""
@@ -71,6 +81,7 @@ class DocumentListResponse(BaseModel):
                     }
                 ],
                 "total": 1,
+                "skipped_large_files": 0,
             }
         }
 
@@ -134,17 +145,19 @@ def _is_supported_file(file_path: Path) -> bool:
     "",
     response_model=DocumentListResponse,
     summary="List available documents",
-    description="Returns a list of all documents in the documents directory. Supports filtering by file extension.",
+    description="Returns a list of all documents in the documents directory. Supports filtering by file extension. Files larger than 50MB are skipped.",
 )
 async def list_documents(
+    request: Request,
     extension: Optional[str] = Query(
         None,
         description="Filter by file extension (e.g., 'pdf', 'txt', '.pdf', '.txt')",
     ),
 ) -> DocumentListResponse:
-    """List all documents in the documents directory.
+    """List all documents in the documents directory with caching.
 
     Args:
+        request: FastAPI request object
         extension: Optional file extension filter (with or without leading dot)
 
     Returns:
@@ -159,8 +172,17 @@ async def list_documents(
             status_code=500, detail=f"Documents directory not found: {DOCUMENTS_PATH}"
         )
 
+    # Build cache key
+    cache_key = f"documents:ext={extension or 'all'}"
+
+    # Try to get from cache
+    cached = await get_cached(cache_key, namespace="documents")
+    if cached:
+        return DocumentListResponse(**cached)
+
     # Collect all supported files
     documents: List[DocumentInfo] = []
+    skipped_large_files = 0
 
     # Normalize extension filter (ensure it starts with a dot)
     if extension:
@@ -183,7 +205,13 @@ async def list_documents(
         if ext_filter and file_path.suffix.lower() != ext_filter:
             continue
 
+        # Check file size
         try:
+            file_size = file_path.stat().st_size
+            if file_size > MAX_DOCUMENT_SIZE:
+                skipped_large_files += 1
+                continue
+
             doc_info = _get_file_info(file_path)
             documents.append(doc_info)
         except (OSError, ValueError) as e:
@@ -194,10 +222,21 @@ async def list_documents(
     # Sort by name for consistent ordering
     documents.sort(key=lambda d: d.name)
 
-    return DocumentListResponse(
+    result = DocumentListResponse(
         documents=documents,
         total=len(documents),
+        skipped_large_files=skipped_large_files,
     )
+
+    # Cache the result (longer TTL since documents change rarely)
+    await set_cached(
+        cache_key,
+        result.model_dump(),
+        CacheConfig.DOCUMENT_LIST_TTL,
+        namespace="documents",
+    )
+
+    return result
 
 
 @router.get(

@@ -15,8 +15,8 @@ from mvp.api.documents import router as documents_router
 from mvp.api.prompts import router as prompts_router
 from mvp.api.runs import router as runs_router
 
-# Create main API router
-api_router = APIRouter(prefix="/api")
+# Create main API router (no prefix here - routers have their own)
+api_router = APIRouter()
 
 # Include sub-routers
 api_router.include_router(configs_router)
