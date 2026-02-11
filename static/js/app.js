@@ -943,6 +943,515 @@
     };
 
     // ============================================
+    // MODEL CONFIG MANAGER
+    // ============================================
+    const ConfigManager = {
+        currentConfigId: null,
+        isEditing: false,
+        
+        // Provider-specific model suggestions
+        modelSuggestions: {
+            openai: [
+                'gpt-5',
+                'gpt-5-mini',
+                'gpt-5-nano',
+                'gpt-4o',
+                'gpt-4o-mini',
+                'gpt-4-turbo',
+                'gpt-4',
+                'gpt-3.5-turbo'
+            ],
+            anthropic: [
+                'claude-3-5-sonnet-20241022',
+                'claude-3-5-haiku-20241022',
+                'claude-3-opus-20240229',
+                'claude-3-sonnet-20240229',
+                'claude-3-haiku-20240307'
+            ],
+            openrouter: [
+                'openai/gpt-4o',
+                'openai/gpt-4-turbo',
+                'anthropic/claude-3.5-sonnet',
+                'anthropic/claude-3-opus',
+                'google/gemini-1.5-pro',
+                'google/gemini-1.5-flash',
+                'meta-llama/llama-3.1-70b-instruct'
+            ]
+        },
+        
+        /**
+         * Initialize the config manager
+         */
+        init() {
+            this.setupEventListeners();
+            this.setupTemperatureSlider();
+            this.setupProviderDropdown();
+            this.setupFormValidation();
+        },
+        
+        /**
+         * Setup event listeners for config management
+         */
+        setupEventListeners() {
+            // New config button
+            const newBtn = document.getElementById('new-config-btn');
+            if (newBtn) {
+                newBtn.addEventListener('click', () => this.startNewConfig());
+            }
+            
+            // Cancel button
+            const cancelBtn = document.getElementById('cancel-config-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', () => this.cancelEdit());
+            }
+            
+            // Delete button
+            const deleteBtn = document.getElementById('delete-config-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => this.deleteCurrentConfig());
+            }
+            
+            // Form submission
+            const form = document.getElementById('config-form');
+            if (form) {
+                form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+            }
+            
+            // Load configs when tab is shown
+            window.addEventListener('tabchange', (e) => {
+                if (e.detail.tab === 'configs') {
+                    this.loadConfigs();
+                }
+            });
+        },
+        
+        /**
+         * Setup temperature slider with value display
+         */
+        setupTemperatureSlider() {
+            const slider = document.getElementById('config-temperature');
+            const display = document.getElementById('temp-value');
+            
+            if (slider && display) {
+                slider.addEventListener('input', (e) => {
+                    display.textContent = e.target.value;
+                });
+            }
+        },
+        
+        /**
+         * Setup provider dropdown with model suggestions
+         */
+        setupProviderDropdown() {
+            const providerSelect = document.getElementById('config-provider');
+            const modelInput = document.getElementById('config-model');
+            
+            if (providerSelect && modelInput) {
+                providerSelect.addEventListener('change', (e) => {
+                    const provider = e.target.value;
+                    this.updateModelSuggestions(provider);
+                });
+            }
+        },
+        
+        /**
+         * Update model suggestions based on provider
+         */
+        updateModelSuggestions(provider) {
+            const modelInput = document.getElementById('config-model');
+            const suggestions = this.modelSuggestions[provider] || [];
+            
+            // Remove existing datalist
+            const existingDatalist = document.getElementById('model-suggestions');
+            if (existingDatalist) {
+                existingDatalist.remove();
+            }
+            
+            if (suggestions.length > 0) {
+                const datalist = document.createElement('datalist');
+                datalist.id = 'model-suggestions';
+                
+                suggestions.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    datalist.appendChild(option);
+                });
+                
+                document.body.appendChild(datalist);
+                modelInput.setAttribute('list', 'model-suggestions');
+            } else {
+                modelInput.removeAttribute('list');
+            }
+        },
+        
+        /**
+         * Setup form validation
+         */
+        setupFormValidation() {
+            const form = document.getElementById('config-form');
+            if (!form) return;
+            
+            // Real-time validation for temperature
+            const tempInput = document.getElementById('config-temperature');
+            if (tempInput) {
+                tempInput.addEventListener('change', () => this.validateTemperature());
+            }
+            
+            // Real-time validation for extra params JSON
+            const extraInput = document.getElementById('config-extra');
+            if (extraInput) {
+                extraInput.addEventListener('blur', () => this.validateExtraParams());
+            }
+        },
+        
+        /**
+         * Validate temperature value
+         */
+        validateTemperature() {
+            const input = document.getElementById('config-temperature');
+            const value = parseFloat(input.value);
+            
+            if (isNaN(value) || value < 0 || value > 1) {
+                this.showFieldError(input, 'Temperature must be between 0.0 and 1.0');
+                return false;
+            }
+            
+            this.clearFieldError(input);
+            return true;
+        },
+        
+        /**
+         * Validate extra params JSON
+         */
+        validateExtraParams() {
+            const input = document.getElementById('config-extra');
+            const value = input.value.trim();
+            
+            if (!value) return true; // Empty is valid
+            
+            try {
+                JSON.parse(value);
+                this.clearFieldError(input);
+                return true;
+            } catch (e) {
+                this.showFieldError(input, 'Invalid JSON format');
+                return false;
+            }
+        },
+        
+        /**
+         * Show field error
+         */
+        showFieldError(field, message) {
+            field.classList.add('error');
+            
+            // Find or create error message element
+            let errorEl = field.parentElement.querySelector('.field-error');
+            if (!errorEl) {
+                errorEl = document.createElement('span');
+                errorEl.className = 'field-error';
+                field.parentElement.appendChild(errorEl);
+            }
+            errorEl.textContent = message;
+        },
+        
+        /**
+         * Clear field error
+         */
+        clearFieldError(field) {
+            field.classList.remove('error');
+            const errorEl = field.parentElement.querySelector('.field-error');
+            if (errorEl) {
+                errorEl.remove();
+            }
+        },
+        
+        /**
+         * Validate entire form
+         */
+        validateForm() {
+            const form = document.getElementById('config-form');
+            let isValid = true;
+            
+            // Required fields
+            const requiredFields = ['config-name', 'config-provider', 'config-model'];
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    this.showFieldError(field, 'This field is required');
+                    isValid = false;
+                } else {
+                    this.clearFieldError(field);
+                }
+            });
+            
+            // Temperature validation
+            if (!this.validateTemperature()) {
+                isValid = false;
+            }
+            
+            // Extra params validation
+            if (!this.validateExtraParams()) {
+                isValid = false;
+            }
+            
+            return isValid;
+        },
+        
+        /**
+         * Load configurations from API
+         */
+        async loadConfigs() {
+            try {
+                Utils.updateStatus('Loading configurations...', 'loading');
+                
+                const response = await API.get('/configs');
+                const configs = response.data || response || [];
+                
+                State.set('configs', configs);
+                this.renderConfigList(configs);
+                
+                // Update run config selector
+                this.updateRunConfigSelector(configs);
+                
+                Utils.updateStatus('Configurations loaded');
+                return configs;
+            } catch (error) {
+                Utils.handleError(error, { context: 'Loading configurations' });
+                this.renderConfigList([]);
+                return [];
+            }
+        },
+        
+        /**
+         * Render config list
+         */
+        renderConfigList(configs) {
+            const container = document.getElementById('config-list');
+            if (!container) return;
+            
+            if (!configs || configs.length === 0) {
+                container.innerHTML = '<div class="empty-state">No configurations yet. Create one to get started.</div>';
+                return;
+            }
+            
+            container.innerHTML = configs.map(config => `
+                <div class="config-card ${this.currentConfigId === config.id ? 'selected' : ''}" 
+                     data-id="${config.id}"
+                     onclick="PromptGovernor.ConfigManager.selectConfig('${config.id}')">
+                    <div class="config-card-header">
+                        <span class="config-name">${Utils.escapeHtml(config.name)}</span>
+                        <span class="config-provider badge">${config.provider}</span>
+                    </div>
+                    <div class="config-card-details">
+                        <span class="config-model">${Utils.escapeHtml(config.model_id)}</span>
+                        <span class="config-temp">Temp: ${config.temperature}</span>
+                    </div>
+                </div>
+            `).join('');
+        },
+        
+        /**
+         * Update run config selector
+         */
+        updateRunConfigSelector(configs) {
+            const selector = document.getElementById('run-config-select');
+            if (!selector) return;
+            
+            const currentValue = selector.value;
+            
+            selector.innerHTML = '<option value="">Select config...</option>' +
+                configs.map(config => `
+                    <option value="${config.id}">${Utils.escapeHtml(config.name)} (${config.provider})</option>
+                `).join('');
+            
+            // Restore selection if still valid
+            if (currentValue && configs.find(c => c.id === currentValue)) {
+                selector.value = currentValue;
+            }
+        },
+        
+        /**
+         * Select a config for editing
+         */
+        selectConfig(configId) {
+            const configs = State.get('configs', []);
+            const config = configs.find(c => c.id === configId);
+            
+            if (!config) return;
+            
+            this.currentConfigId = configId;
+            this.isEditing = true;
+            
+            // Populate form
+            document.getElementById('config-name').value = config.name || '';
+            document.getElementById('config-provider').value = config.provider || '';
+            document.getElementById('config-model').value = config.model_id || '';
+            document.getElementById('config-reasoning').value = config.reasoning_effort || 'medium';
+            document.getElementById('config-temperature').value = config.temperature !== undefined ? config.temperature : 0.7;
+            document.getElementById('temp-value').textContent = config.temperature !== undefined ? config.temperature : 0.7;
+            document.getElementById('config-max-tokens').value = config.max_tokens || '';
+            document.getElementById('config-extra').value = config.extra_params ? JSON.stringify(config.extra_params, null, 2) : '';
+            
+            // Update suggestions for selected provider
+            this.updateModelSuggestions(config.provider);
+            
+            // Update UI state
+            this.updateFormState();
+            this.renderConfigList(configs);
+            
+            Utils.updateStatus(`Editing configuration: ${config.name}`);
+        },
+        
+        /**
+         * Start creating a new config
+         */
+        startNewConfig() {
+            this.currentConfigId = null;
+            this.isEditing = false;
+            
+            // Clear form
+            document.getElementById('config-form').reset();
+            document.getElementById('temp-value').textContent = '0.7';
+            
+            // Clear any errors
+            document.querySelectorAll('#config-form .error').forEach(el => {
+                el.classList.remove('error');
+            });
+            document.querySelectorAll('#config-form .field-error').forEach(el => {
+                el.remove();
+            });
+            
+            // Remove model suggestions
+            const datalist = document.getElementById('model-suggestions');
+            if (datalist) datalist.remove();
+            
+            // Update UI state
+            this.updateFormState();
+            
+            Utils.updateStatus('Creating new configuration');
+        },
+        
+        /**
+         * Cancel editing
+         */
+        cancelEdit() {
+            if (this.currentConfigId) {
+                // Re-select current to reset form
+                this.selectConfig(this.currentConfigId);
+            } else {
+                // Clear form
+                document.getElementById('config-form').reset();
+                document.getElementById('temp-value').textContent = '0.7';
+            }
+            
+            // Clear errors
+            document.querySelectorAll('#config-form .error').forEach(el => {
+                el.classList.remove('error');
+            });
+            document.querySelectorAll('#config-form .field-error').forEach(el => {
+                el.remove();
+            });
+        },
+        
+        /**
+         * Update form UI state
+         */
+        updateFormState() {
+            const deleteBtn = document.getElementById('delete-config-btn');
+            if (deleteBtn) {
+                deleteBtn.style.display = this.isEditing ? 'inline-block' : 'none';
+            }
+        },
+        
+        /**
+         * Handle form submission
+         */
+        async handleFormSubmit(e) {
+            e.preventDefault();
+            
+            if (!this.validateForm()) {
+                Utils.showToast('Please fix the errors in the form', 'error');
+                return;
+            }
+            
+            const formData = {
+                name: document.getElementById('config-name').value.trim(),
+                provider: document.getElementById('config-provider').value,
+                model_id: document.getElementById('config-model').value.trim(),
+                reasoning_effort: document.getElementById('config-reasoning').value,
+                temperature: parseFloat(document.getElementById('config-temperature').value),
+                max_tokens: document.getElementById('config-max-tokens').value ? 
+                    parseInt(document.getElementById('config-max-tokens').value) : null,
+                extra_params: null
+            };
+            
+            // Parse extra params JSON
+            const extraJson = document.getElementById('config-extra').value.trim();
+            if (extraJson) {
+                try {
+                    formData.extra_params = JSON.parse(extraJson);
+                } catch (e) {
+                    Utils.showToast('Invalid JSON in extra parameters', 'error');
+                    return;
+                }
+            }
+            
+            try {
+                if (this.isEditing && this.currentConfigId) {
+                    // Update existing
+                    await API.put(`/configs/${this.currentConfigId}`, formData);
+                    Utils.showToast('Configuration updated successfully', 'success');
+                } else {
+                    // Create new
+                    const response = await API.post('/configs', formData);
+                    this.currentConfigId = response.data?.id || response.id;
+                    this.isEditing = true;
+                    Utils.showToast('Configuration created successfully', 'success');
+                }
+                
+                // Reload configs to refresh list
+                await this.loadConfigs();
+                this.updateFormState();
+                
+            } catch (error) {
+                Utils.handleError(error, { 
+                    context: this.isEditing ? 'Updating configuration' : 'Creating configuration'
+                });
+            }
+        },
+        
+        /**
+         * Delete current configuration
+         */
+        async deleteCurrentConfig() {
+            if (!this.currentConfigId) return;
+            
+            const configs = State.get('configs', []);
+            const config = configs.find(c => c.id === this.currentConfigId);
+            const configName = config ? config.name : 'this configuration';
+            
+            if (!confirm(`Are you sure you want to delete "${configName}"? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                await API.delete(`/configs/${this.currentConfigId}`);
+                Utils.showToast('Configuration deleted successfully', 'success');
+                
+                // Reset form
+                this.startNewConfig();
+                
+                // Reload configs
+                await this.loadConfigs();
+                
+            } catch (error) {
+                Utils.handleError(error, { context: 'Deleting configuration' });
+            }
+        }
+    };
+
+    // ============================================
     // DATA LOADING
     // ============================================
     const DataLoader = {
@@ -961,6 +1470,12 @@
                 
                 if (prompts) State.set('prompts', prompts);
                 if (configs) State.set('configs', configs);
+                
+                // Update config list and run selector
+                if (configs) {
+                    ConfigManager.renderConfigList(configs);
+                    ConfigManager.updateRunConfigSelector(configs);
+                }
                 
                 Utils.updateStatus('Ready');
                 
@@ -995,6 +1510,93 @@
     };
 
     // ============================================
+    // JSON EDITOR MANAGER
+    // ============================================
+    const JSONEditorManager = {
+        editor: null,
+        
+        /**
+         * Initialize the JSON Editor
+         */
+        init() {
+            const container = document.getElementById('prompt-editor-container');
+            if (!container) return;
+            
+            try {
+                this.editor = new JSONEditor('prompt-editor-container', {
+                    readOnly: false,
+                    lineNumbers: true,
+                    height: '450px',
+                    onChange: (value) => {
+                        // Track unsaved changes
+                        if (value !== this.lastSavedValue) {
+                            Utils.updateStatus('Unsaved changes', 'loading');
+                        }
+                    },
+                    onValidation: (result) => {
+                        if (!result.isValid) {
+                            console.log('JSON validation error:', result.error);
+                        }
+                    }
+                });
+                
+                // Set initial example content
+                this.editor.setValue({
+                    name: "My Prompt",
+                    description: "Example prompt for extraction",
+                    blocks: [
+                        {
+                            type: "system",
+                            content: "You are a helpful assistant that extracts information from documents."
+                        },
+                        {
+                            type: "user",
+                            content: "Extract the following fields from the document:..."
+                        }
+                    ],
+                    version: "1.0.0"
+                });
+                
+                console.log('✅ JSON Editor initialized');
+                
+            } catch (error) {
+                console.error('Failed to initialize JSON Editor:', error);
+            }
+        },
+        
+        /**
+         * Get the editor instance
+         */
+        getEditor() {
+            return this.editor;
+        },
+        
+        /**
+         * Get current prompt value
+         */
+        getPromptValue() {
+            return this.editor ? this.editor.getParsedValue() : null;
+        },
+        
+        /**
+         * Set prompt value
+         */
+        setPromptValue(value) {
+            if (this.editor) {
+                this.editor.setValue(value);
+                this.lastSavedValue = typeof value === 'string' ? value : JSON.stringify(value);
+            }
+        },
+        
+        /**
+         * Check if content is valid
+         */
+        isValid() {
+            return this.editor ? this.editor.isValid() : false;
+        }
+    };
+
+    // ============================================
     // INITIALIZATION
     // ============================================
     function init() {
@@ -1005,6 +1607,12 @@
         
         // Initialize tabs
         Tabs.init();
+        
+        // Initialize JSON Editor
+        JSONEditorManager.init();
+        
+        // Initialize Config Manager
+        ConfigManager.init();
         
         // Start API status monitoring
         APIStatus.start();
@@ -1061,8 +1669,10 @@
         Utils,
         APIStatus,
         DataLoader,
+        JSONEditorManager,
+        ConfigManager,
         CONFIG,
-        
+
         // Utility shortcuts
         formatDate: Utils.formatDate.bind(Utils),
         formatNumber: Utils.formatNumber.bind(Utils),
@@ -1070,7 +1680,7 @@
         showLoading: Utils.showLoading.bind(Utils),
         hideLoading: Utils.hideLoading.bind(Utils),
         handleError: Utils.handleError.bind(Utils),
-        
+
         // Version
         version: '1.0.0'
     };
