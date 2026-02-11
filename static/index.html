@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Governor</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header with app name -->
+    <header class="app-header">
+        <div class="header-container">
+            <h1 class="app-title">Prompt Governor</h1>
+            <div class="header-actions">
+                <span class="version-tag">v1.0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Tab navigation -->
+    <nav class="tab-navigation">
+        <ul class="tab-list">
+            <li class="tab-item">
+                <button class="tab-button active" data-tab="prompts">
+                    <span class="tab-icon">📝</span>
+                    <span class="tab-label">Prompts</span>
+                </button>
+            </li>
+            <li class="tab-item">
+                <button class="tab-button" data-tab="configs">
+                    <span class="tab-icon">⚙️</span>
+                    <span class="tab-label">Model Configs</span>
+                </button>
+            </li>
+            <li class="tab-item">
+                <button class="tab-button" data-tab="runs">
+                    <span class="tab-icon">▶️</span>
+                    <span class="tab-label">Run &amp; Results</span>
+                </button>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main content area -->
+    <main class="main-content">
+        <!-- Prompts Tab Content -->
+        <section id="prompts" class="tab-content active">
+            <div class="tab-header">
+                <h2>Prompt Management</h2>
+                <p class="tab-description">Create, edit, and manage prompt versions for extraction tasks.</p>
+            </div>
+            <div class="tab-body">
+                <div class="prompt-container">
+                    <aside class="prompt-sidebar">
+                        <div class="sidebar-header">
+                            <h3>Versions</h3>
+                            <button class="btn btn-small" id="new-prompt-btn">+ New</button>
+                        </div>
+                        <div class="prompt-list" id="prompt-list">
+                            <!-- Prompt list will be populated by JavaScript -->
+                            <div class="empty-state">Loading prompts...</div>
+                        </div>
+                    </aside>
+                    <div class="prompt-editor-area">
+                        <div class="editor-toolbar">
+                            <select id="prompt-selector" class="selector">
+                                <option value="">Select a prompt...</option>
+                            </select>
+                            <div class="editor-actions">
+                                <button class="btn btn-secondary" id="save-prompt-btn">Save as New Version</button>
+                                <button class="btn btn-danger" id="delete-prompt-btn">Delete</button>
+                            </div>
+                        </div>
+                        <div class="editor-container">
+                            <div id="prompt-editor" class="json-editor" placeholder="{
+  &quot;name&quot;: &quot;My Prompt&quot;,
+  &quot;blocks&quot;: [...]
+}"></div>
+                        </div>
+                        <div class="editor-meta">
+                            <span id="prompt-id"></span>
+                            <span id="prompt-created"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Model Configs Tab Content -->
+        <section id="configs" class="tab-content">
+            <div class="tab-header">
+                <h2>Model Configuration</h2>
+                <p class="tab-description">Configure AI model parameters for extraction runs.</p>
+            </div>
+            <div class="tab-body">
+                <div class="config-container">
+                    <div class="config-list-section">
+                        <div class="section-header">
+                            <h3>Saved Configurations</h3>
+                            <button class="btn btn-small" id="new-config-btn">+ New Config</button>
+                        </div>
+                        <div class="config-list" id="config-list">
+                            <!-- Config list will be populated by JavaScript -->
+                            <div class="empty-state">Loading configurations...</div>
+                        </div>
+                    </div>
+                    <div class="config-form-section">
+                        <form id="config-form" class="config-form">
+                            <div class="form-group">
+                                <label for="config-name">Name</label>
+                                <input type="text" id="config-name" name="name" placeholder="e.g., GPT-4 High Quality" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="config-provider">Provider</label>
+                                    <select id="config-provider" name="provider" required>
+                                        <option value="">Select provider...</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="anthropic">Anthropic</option>
+                                        <option value="openrouter">OpenRouter</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="config-model">Model ID</label>
+                                    <input type="text" id="config-model" name="model_id" placeholder="e.g., gpt-4-turbo" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="config-reasoning">Reasoning Effort</label>
+                                    <select id="config-reasoning" name="reasoning_effort">
+                                        <option value="minimal">Minimal</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="high">High</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="config-temperature">Temperature: <span id="temp-value">0.7</span></label>
+                                    <input type="range" id="config-temperature" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="config-max-tokens">Max Tokens</label>
+                                <input type="number" id="config-max-tokens" name="max_tokens" placeholder="4096" min="1" max="128000">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-extra">Extra Parameters (JSON)</label>
+                                <textarea id="config-extra" name="extra_params" rows="4" placeholder='{&quot;key&quot;: &quot;value&quot;}'></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Save Configuration</button>
+                                <button type="button" class="btn btn-secondary" id="cancel-config-btn">Cancel</button>
+                                <button type="button" class="btn btn-danger" id="delete-config-btn">Delete</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Run & Results Tab Content -->
+        <section id="runs" class="tab-content">
+            <div class="tab-header">
+                <h2>Run Extraction &amp; Results</h2>
+                <p class="tab-description">Execute extraction runs and view results with detailed metrics.</p>
+            </div>
+            <div class="tab-body">
+                <div class="runs-container">
+                    <!-- Run Configuration Panel -->
+                    <div class="run-config-panel">
+                        <h3>Run Configuration</h3>
+                        <div class="run-selectors">
+                            <div class="form-group">
+                                <label for="run-prompt-select">Prompt</label>
+                                <select id="run-prompt-select" class="selector">
+                                    <option value="">Select prompt...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="run-config-select">Configuration</label>
+                                <select id="run-config-select" class="selector">
+                                    <option value="">Select config...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="run-document-select">Document</label>
+                                <select id="run-document-select" class="selector">
+                                    <option value="">Select document...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="run-actions">
+                            <button class="btn btn-primary btn-large" id="run-extraction-btn">
+                                <span class="btn-icon">▶️</span>
+                                Run Extraction
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Progress Indicator -->
+                    <div class="run-progress" id="run-progress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <span class="progress-text" id="progress-text">Initializing...</span>
+                    </div>
+
+                    <!-- Results Panel -->
+                    <div class="results-panel" id="results-panel" style="display: none;">
+                        <div class="results-header">
+                            <h3>Results</h3>
+                            <div class="results-actions">
+                                <button class="btn btn-small" id="compare-runs-btn">Compare</button>
+                                <button class="btn btn-small btn-secondary" id="export-results-btn">Export</button>
+                            </div>
+                        </div>
+                        <div class="metrics-display">
+                            <div class="metric-card primary">
+                                <span class="metric-label">Recall</span>
+                                <span class="metric-value" id="metric-recall">--%</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Precision</span>
+                                <span class="metric-value" id="metric-precision">--%</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">F1 Score</span>
+                                <span class="metric-value" id="metric-f1">--%</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Cost</span>
+                                <span class="metric-value" id="metric-cost">$--</span>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Tokens</span>
+                                <span class="metric-value" id="metric-tokens">--</span>
+                            </div>
+                        </div>
+                        <div class="results-details">
+                            <div class="details-section">
+                                <h4>Missing Fields</h4>
+                                <ul class="missing-fields-list" id="missing-fields-list">
+                                    <li class="empty">No results yet</li>
+                                </ul>
+                            </div>
+                            <div class="details-section">
+                                <h4>Output vs Ground Truth</h4>
+                                <div class="diff-viewer" id="diff-viewer">
+                                    <div class="empty-state">Run an extraction to see results</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Run History -->
+                    <div class="run-history">
+                        <h3>Run History</h3>
+                        <div class="history-list" id="history-list">
+                            <!-- History items will be populated by JavaScript -->
+                            <div class="empty-state">No runs yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer with status area -->
+    <footer class="app-footer">
+        <div class="footer-container">
+            <div class="status-area" id="status-area">
+                <span class="status-indicator" id="status-indicator"></span>
+                <span class="status-text" id="status-text">Ready</span>
+            </div>
+            <div class="footer-info">
+                <span>Prompt Governor MVP</span>
+                <span class="separator">|</span>
+                <span id="api-status">API: Checking...</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+</body>
+</html>
