@@ -2,15 +2,15 @@
 
 ## Current Position
 
-Phase: D3 - JavaScript Core ✓ COMPLETE
-Plan: D3 (Plan 3 of Phase Group D - Frontend Core)
+Phase: B3 - Metrics Service ✓ COMPLETE
+Plan: B3 (Plan 3 of Phase Group B - Backend Core)
 Status: Completed 2026-02-11
-Last completed: Enhanced JavaScript with tab switching, API client, state management, and utilities
+Last completed: Metrics calculation service with recall, precision, F1, cost calculation, and token usage extraction
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 10 (A1, A2, A3, A4, B1, B2, C3, D1, D2, D3)
+Completed: 11 (A1, A2, A3, A4, B1, B2, C3, D1, D2, D3, H1)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
@@ -34,7 +34,7 @@ Phase Groups:
 - [ ] Phase Group E: Frontend Tabs (E1-E3)
 - [ ] Phase Group F: Integration (F1-F2)
 - [ ] Phase Group G: Testing (G1-G4)
-- [ ] Phase Group H: Polish (H1-H3)
+- [~] Phase Group H: Polish (H1-H3) - H1 COMPLETE
 - [~] Phase Group I: Documentation (I1-I4) - I1-01 COMPLETE
 - [ ] Phase Group J: Final (J1-J2)
 
@@ -63,6 +63,7 @@ Phase Groups:
 | 2026-02-11 | Exponential backoff retries | D3 JavaScript Core | Reduces server load: 1s, 2s, 3s delays between retries |
 | 2026-02-11 | localStorage for state persistence | D3 JavaScript Core | Simple client-side storage for tab state and preferences |
 | 2026-02-11 | AbortController for timeouts | D3 JavaScript Core | Proper request cancellation, 30s timeout protection |
+| 2026-02-11 | Centralized error handling module | H1 Error Handling | Single source of truth for all API error responses with consistent format |
 
 ## Blockers & Concerns
 
@@ -70,9 +71,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 15:12:00Z
-Stopped at: Completed Phase D3 - JavaScript Core
-Resume file: .planning/phases/D-frontend/D3-SUMMARY.md
+Last session: 2026-02-11 16:45:00Z
+Stopped at: Completed Phase H1 - Error Handling Prep
+Resume file: .planning/phases/H-polish/H1-SUMMARY.md
 
 ## Completed Artifacts
 
@@ -118,3 +119,10 @@ Resume file: .planning/phases/D-frontend/D3-SUMMARY.md
   - `mvp/models/prompt.py` - PromptVersion with PromptBlock nested model
   - `mvp/models/config.py` - ModelConfig with provider validation
   - `mvp/models/run.py` - Run model with status tracking
+- Error Handling (H1):
+  - `mvp/utils/errors.py` - Comprehensive error handling utilities (519 lines)
+    - 4 custom exceptions: NotFoundError, ValidationError, StorageError, PipelineError
+    - Standardized error response format with create_error_response()
+    - FastAPI exception handlers for all custom exceptions + generic handlers
+    - Validation utilities: validate_uuid, validate_required_fields, validate_json
+    - Helper function register_exception_handlers() for easy FastAPI integration
