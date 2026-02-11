@@ -33,7 +33,8 @@ services:
     environment:
       # Load all environment variables from .env file
       # This includes API keys and configuration
-      - PYTHONPATH=/app
+      # PYTHONPATH includes /app (MVP code) and /app/prompt_optimization (pipeline code)
+      - PYTHONPATH=/app:/app/prompt_optimization
     env_file:
       - .env
     # Override the default command to enable hot reload
