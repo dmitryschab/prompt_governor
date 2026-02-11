@@ -18,23 +18,23 @@
     </header>
 
     <!-- Tab navigation -->
-    <nav class="tab-navigation">
+    <nav class="tab-navigation" role="tablist" aria-label="Main navigation">
         <ul class="tab-list">
-            <li class="tab-item">
-                <button class="tab-button active" data-tab="prompts">
-                    <span class="tab-icon">📝</span>
+            <li class="tab-item" role="presentation">
+                <button class="tab-button active" data-tab="prompts" role="tab" aria-selected="true" aria-controls="prompts" id="tab-prompts">
+                    <span class="tab-icon" aria-hidden="true">📝</span>
                     <span class="tab-label">Prompts</span>
                 </button>
             </li>
-            <li class="tab-item">
-                <button class="tab-button" data-tab="configs">
-                    <span class="tab-icon">⚙️</span>
+            <li class="tab-item" role="presentation">
+                <button class="tab-button" data-tab="configs" role="tab" aria-selected="false" aria-controls="configs" id="tab-configs">
+                    <span class="tab-icon" aria-hidden="true">⚙️</span>
                     <span class="tab-label">Model Configs</span>
                 </button>
             </li>
-            <li class="tab-item">
-                <button class="tab-button" data-tab="runs">
-                    <span class="tab-icon">▶️</span>
+            <li class="tab-item" role="presentation">
+                <button class="tab-button" data-tab="runs" role="tab" aria-selected="false" aria-controls="runs" id="tab-runs">
+                    <span class="tab-icon" aria-hidden="true">▶️</span>
                     <span class="tab-label">Run &amp; Results</span>
                 </button>
             </li>
@@ -44,7 +44,7 @@
     <!-- Main content area -->
     <main class="main-content">
         <!-- Prompts Tab Content -->
-        <section id="prompts" class="tab-content active">
+        <section id="prompts" class="tab-content active" role="tabpanel" aria-labelledby="tab-prompts">
             <div class="tab-header">
                 <h2>Prompt Management</h2>
                 <p class="tab-description">Create, edit, and manage prompt versions for extraction tasks.</p>
@@ -131,7 +131,7 @@
         </section>
 
         <!-- Model Configs Tab Content -->
-        <section id="configs" class="tab-content">
+        <section id="configs" class="tab-content" role="tabpanel" aria-labelledby="tab-configs" hidden>
             <div class="tab-header">
                 <h2>Model Configuration</h2>
                 <p class="tab-description">Configure AI model parameters for extraction runs.</p>
@@ -203,7 +203,7 @@
         </section>
 
         <!-- Run & Results Tab Content -->
-        <section id="runs" class="tab-content">
+        <section id="runs" class="tab-content" role="tabpanel" aria-labelledby="tab-runs" hidden>
             <div class="tab-header">
                 <h2>Run Extraction &amp; Results</h2>
                 <p class="tab-description">Execute extraction runs and view results with detailed metrics.</p>
@@ -329,12 +329,12 @@
     </main>
 
     <!-- Diff Viewer Modal -->
-    <div class="modal" id="diff-modal" style="display: none;">
+    <div class="modal" id="diff-modal" style="display: none;" role="dialog" aria-labelledby="diff-modal-title" aria-modal="true">
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Compare Versions</h3>
-                <button class="modal-close" id="close-diff-modal">×</button>
+                <h3 id="diff-modal-title">Compare Versions</h3>
+                <button class="modal-close" id="close-diff-modal" aria-label="Close compare dialog">×</button>
             </div>
             <div class="modal-body">
                 <div class="diff-selector-row">
@@ -357,12 +357,12 @@
     </div>
 
     <!-- Save Version Modal -->
-    <div class="modal" id="save-version-modal" style="display: none;">
+    <div class="modal" id="save-version-modal" style="display: none;" role="dialog" aria-labelledby="save-modal-title" aria-modal="true">
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Save New Version</h3>
-                <button class="modal-close" id="close-save-modal">×</button>
+                <h3 id="save-modal-title">Save New Version</h3>
+                <button class="modal-close" id="close-save-modal" aria-label="Close save dialog">×</button>
             </div>
             <div class="modal-body">
                 <form id="save-version-form">
