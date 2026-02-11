@@ -2,9 +2,14 @@
 
 from datetime import datetime
 from typing import Dict, Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
+
+
+def generate_uuid_hex() -> str:
+    """Generate a UUID v4 in hex format (no dashes)."""
+    return uuid4().hex
 
 
 class Run(BaseModel):
@@ -14,11 +19,16 @@ class Run(BaseModel):
     against a document, including status, output, and metrics.
     """
 
-    id: UUID = Field(
-        default_factory=uuid4, description="Unique identifier for this run"
+    id: str = Field(
+        default_factory=generate_uuid_hex,
+        description="Unique identifier for this run (hex format, no dashes)",
     )
-    prompt_id: UUID = Field(..., description="ID of the prompt version used")
-    config_id: UUID = Field(..., description="ID of the model configuration used")
+    prompt_id: str = Field(
+        ..., description="ID of the prompt version used (hex format, no dashes)"
+    )
+    config_id: str = Field(
+        ..., description="ID of the model configuration used (hex format, no dashes)"
+    )
     document_name: str = Field(..., description="Name of the document being processed")
     status: str = Field(
         default="pending",
