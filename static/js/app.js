@@ -3696,9 +3696,13 @@
     // ============================================
     function init() {
         console.log('🚀 Prompt Governor initialized');
+        console.log('💡 Press ⌘/Ctrl + ? for keyboard shortcuts help');
 
         // Restore state from localStorage
         State.restore();
+
+        // Initialize accessibility first
+        AccessibilityManager.init();
 
         // Initialize tabs
         Tabs.init();
@@ -3715,51 +3719,21 @@
         // Initialize Run Manager
         RunManager.init();
 
+        // Initialize keyboard shortcuts
+        KeyboardShortcuts.init();
+
         // Start API status monitoring
         APIStatus.start();
 
         // Load initial data
         DataLoader.loadInitialData();
 
-        // Set up keyboard shortcuts
-        setupKeyboardShortcuts();
-
         Utils.updateStatus('Ready');
-    }
-    
-    /**
-     * Set up keyboard shortcuts
-     */
-    function setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            // Alt+1, Alt+2, Alt+3 for tab switching
-            if (e.altKey && e.key >= '1' && e.key <= '3') {
-                const tabs = ['prompts', 'configs', 'runs'];
-                const tabIndex = parseInt(e.key) - 1;
-                if (tabs[tabIndex]) {
-                    Tabs.showTab(tabs[tabIndex]);
-                    e.preventDefault();
-                }
-            }
-            
-            // Escape to close modals/toasts
-            if (e.key === 'Escape') {
-                const toast = document.querySelector('.toast-notification');
-                if (toast) Utils.hideToast(toast);
-                
-                document.querySelectorAll('.modal').forEach(modal => {
-                    modal.style.display = 'none';
-                });
-            }
-            
-            // Ctrl+S to save (prevent browser save)
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                if (State.get('currentTab') === 'prompts') {
-                    PromptManager.showSaveVersionModal();
-                }
-            }
-        });
+
+        // Show welcome toast
+        setTimeout(() => {
+            Utils.showToast('Welcome to Prompt Governor! Press ⌘+1/2/3 to switch tabs', 'info', 6000);
+        }, 1000);
     }
 
     // ============================================
@@ -3788,6 +3762,11 @@
         RunManager,
         DiffViewer,
         CONFIG,
+
+        // UI Polish modules
+        KeyboardShortcuts,
+        SkeletonLoader,
+        AccessibilityManager,
 
         // Utility shortcuts
         formatDate: Utils.formatDate.bind(Utils),
