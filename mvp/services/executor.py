@@ -513,10 +513,16 @@ def execute_run(run_id: str, prompt_id: str, config_id: str, document_name: str)
         run = _load_run(run_id)
     except FileNotFoundError:
         # Run doesn't exist yet, will be created fresh
+        # Convert IDs to hex format (no dashes) as expected by Run model
+        def _to_hex(id_str: str) -> str:
+            if len(id_str) == 36:  # Standard UUID with dashes
+                return uuid.UUID(id_str).hex
+            return id_str
+
         run = Run(
-            id=uuid.UUID(run_id) if isinstance(run_id, str) else run_id,
-            prompt_id=uuid.UUID(prompt_id) if isinstance(prompt_id, str) else prompt_id,
-            config_id=uuid.UUID(config_id) if isinstance(config_id, str) else config_id,
+            id=_to_hex(run_id),
+            prompt_id=_to_hex(prompt_id),
+            config_id=_to_hex(config_id),
             document_name=document_name,
             status="pending",
         )
@@ -651,9 +657,17 @@ def create_run(prompt_id_str: str, config_id_str: str, document_name: str) -> Ru
         >>> # Later, execute it
         >>> executed_run = execute_run(str(run.id), prompt_id_str, config_id_str, document_name)
     """
-    # Convert string IDs to UUID objects
-    prompt_id = uuid.UUID(prompt_id_str)
-    config_id = uuid.UUID(config_id_str)
+    # Ensure IDs are hex strings (UUID without dashes)
+    # Input can be hex string or standard UUID string
+    if len(prompt_id_str) == 36:  # Standard UUID format with dashes
+        prompt_id = uuid.UUID(prompt_id_str).hex
+    else:
+        prompt_id = prompt_id_str
+
+    if len(config_id_str) == 36:  # Standard UUID format with dashes
+        config_id = uuid.UUID(config_id_str).hex
+    else:
+        config_id = config_id_str
 
     # Create new run with pending status
     run = Run(
