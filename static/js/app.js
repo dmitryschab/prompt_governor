@@ -2185,9 +2185,12 @@
     };
 
     // ============================================
-    // DIFF VIEWER UTILITY
+    // DIFF VIEWER UTILITY (Performance Optimized)
     // ============================================
     const DiffViewer = {
+        // Maximum number of diff lines to render for performance
+        MAX_DIFF_LINES: 1000,
+        
         /**
          * Compare two objects and generate diff
          */
@@ -2222,14 +2225,39 @@
         },
 
         /**
-         * Render diff as HTML
+         * Render diff as HTML with performance limits
          */
         render(diffs) {
-            if (diffs.length === 0) {
+            if (!diffs || diffs.length === 0) {
                 return '<div class="empty-state">No differences found</div>';
             }
+            
+            // Check if we need to truncate
+            const totalDiffs = diffs.length;
+            const isTruncated = totalDiffs > this.MAX_DIFF_LINES;
+            const diffsToRender = isTruncated ? diffs.slice(0, this.MAX_DIFF_LINES) : diffs;
 
-            return diffs.map((diff, index) => {
+            let html = '';
+            
+            // Add truncation warning if needed
+            if (isTruncated) {
+                html += `
+                    <div class="diff-truncation-warning" style="
+                        background: #fff3cd;
+                        border: 1px solid #ffc107;
+                        border-radius: 4px;
+                        padding: 12px;
+                        margin-bottom: 16px;
+                        color: #856404;
+                    ">
+                        <strong>⚠️ Large Diff Truncated</strong><br>
+                        Showing ${this.MAX_DIFF_LINES.toLocaleString()} of ${totalDiffs.toLocaleString()} differences 
+                        for performance. Consider comparing smaller objects.
+                    </div>
+                `;
+            }
+
+            html += diffsToRender.map((diff, index) => {
                 const typeClass = diff.type;
                 const icon = {
                     'added': '+',
@@ -2258,6 +2286,8 @@
                     </div>
                 `;
             }).join('');
+            
+            return html;
         }
     };
 

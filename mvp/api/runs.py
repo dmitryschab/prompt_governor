@@ -301,8 +301,9 @@ def _validate_document_exists(document_name: str) -> None:
     Raises:
         HTTPException: 404 if document not found
     """
-    # Documents are in the documents/ directory
-    docs_path = get_collection_path("..") / "documents"
+    # Documents are in the documents/ directory (sibling to data/)
+    # Get the parent of the data directory
+    docs_path = get_collection_path("prompts").parent.parent / "documents"
     doc_file = docs_path / document_name
     if not doc_file.exists():
         raise HTTPException(

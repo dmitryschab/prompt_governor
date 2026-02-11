@@ -89,9 +89,21 @@ def client(
     Yields:
         Configured TestClient instance
     """
+    # Documents should be at the same level as data/ (parent of data/)
+    # This is where runs.py expects to find them: get_collection_path("prompts").parent.parent / "documents"
+    # = data/prompts -> data -> . (parent of data) -> documents
+    root_dir = test_data_dir.parent
+    actual_docs_dir = root_dir / "documents"
+    actual_docs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy test documents to the expected location
+    for doc_file in documents_dir.iterdir():
+        if doc_file.is_file():
+            shutil.copy2(doc_file, actual_docs_dir / doc_file.name)
+
     # Patch storage module paths
     with patch("mvp.services.storage.DATA_DIR", test_data_dir):
-        with patch("mvp.api.documents.DOCUMENTS_PATH", documents_dir):
+        with patch("mvp.api.documents.DOCUMENTS_PATH", actual_docs_dir):
             with TestClient(app) as test_client:
                 yield test_client
 
