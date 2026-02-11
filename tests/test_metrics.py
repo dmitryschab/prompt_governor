@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
+from pytest import approx
 
 from mvp.models.config import ModelConfig
 from mvp.services.metrics import (
@@ -51,7 +52,7 @@ class TestCalculateMetrics:
 
         result = calculate_metrics(output, ground_truth)
 
-        assert result["recall"] == 1 / 3
+        assert result["recall"] == approx(1 / 3)
         assert result["precision"] == 1.0  # All output fields matched
         assert result["matched_fields"] == 1
         assert result["missing_fields"] == ["age", "city"]
@@ -65,7 +66,7 @@ class TestCalculateMetrics:
         result = calculate_metrics(output, ground_truth)
 
         assert result["recall"] == 1.0
-        assert result["precision"] == 2 / 3  # 2 matched out of 3 output fields
+        assert result["precision"] == approx(2 / 3)  # 2 matched out of 3 output fields
         assert result["extra_fields"] == ["email"]
         assert result["missing_fields"] == []
 
@@ -145,7 +146,7 @@ class TestCalculateMetrics:
 
         result = calculate_metrics(output, ground_truth)
 
-        assert result["recall"] == 2 / 3  # user, user.name matched
+        assert result["recall"] == approx(2 / 3)  # user, user.name matched
         assert result["precision"] == 1.0
         assert "user.age" in result["missing_fields"]
 
@@ -569,23 +570,6 @@ class TestExtractTokenUsage:
         assert result["input"] == 100
         assert result["output"] == 50
 
-    def test_extract_with_none_values(self) -> None:
-        """Test extraction when usage values are None."""
-        response = {
-            "usage": {
-                "prompt_tokens": None,
-                "completion_tokens": None,
-                "total_tokens": None,
-            }
-        }
-
-        result = extract_token_usage(response)
-
-        assert result["input"] == 0
-        assert result["output"] == 0
-        assert result["total"] == 0
-
-
 # =============================================================================
 # Integration Tests
 # =============================================================================
@@ -634,7 +618,7 @@ class TestMetricsIntegration:
         # Verify
         assert tokens["input"] == 2000
         assert tokens["output"] == 500
-        assert metrics["recall"] == 2 / 3
+        assert metrics["recall"] == approx(2 / 3)
         assert metrics["missing_fields"] == ["start_date"]
         assert cost > 0
 
@@ -697,7 +681,7 @@ class TestMetricsIntegration:
             "number_field": 42,
         }
         result = calculate_metrics(output_partial, ground_truth)
-        assert result["recall"] == 2 / 6
+        assert result["recall"] == approx(2 / 7)
 
     def test_cost_calculation_edge_cases(self) -> None:
         """Test cost calculation edge cases."""

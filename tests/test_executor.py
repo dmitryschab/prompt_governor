@@ -37,6 +37,14 @@ from mvp.services.executor import (
 )
 
 
+# Mock extraction result for testing
+MOCK_EXTRACTION_RESULT = {
+    "output": {"contract_number": "CNT-2024-001", "party_name": "ABC Corp"},
+    "tokens": {"input": 1000, "output": 500, "total": 1500},
+    "latency_ms": 1234,
+    "raw_response": {"usage": {"prompt_tokens": 1000, "completion_tokens": 500}},
+}
+
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -363,6 +371,15 @@ class TestCreateRun:
 class TestExecuteRun:
     """Tests for execute_run function."""
 
+    @pytest.fixture(autouse=True)
+    def mock_pipeline(self, monkeypatch):
+        """Mock the extraction pipeline for all tests in this class."""
+        monkeypatch.setattr("mvp.services.executor.PIPELINE_AVAILABLE", True)
+        monkeypatch.setattr(
+            "mvp.services.executor._execute_extraction_with_pipeline",
+            lambda *args, **kwargs: MOCK_EXTRACTION_RESULT,
+        )
+
     def test_execute_run_successful(
         self,
         temp_data_dir: Path,
@@ -374,9 +391,9 @@ class TestExecuteRun:
     ) -> None:
         """Test successful execution of a run."""
         # Setup files - use hex format for IDs
-        prompt_id = sample_prompt.id.hex
-        config_id = sample_config_openai.id.hex
-        document_name = "test_doc.txt"
+        prompt_id = sample_prompt.id
+        config_id = sample_config_openai.id
+        document_name = "test_doc"
 
         # Save prompt
         prompt_file = temp_data_dir / "prompts" / f"{prompt_id}.json"
@@ -389,17 +406,25 @@ class TestExecuteRun:
             json.dump(json.loads(sample_config_openai.model_dump_json()), f)
 
         # Save ground truth
-        gt_file = temp_ground_truth_dir / f"{document_name.replace('.txt', '')}.json"
+        gt_file = temp_ground_truth_dir / f"{document_name}.json"
         with open(gt_file, "w") as f:
             json.dump(sample_ground_truth, f)
 
-        # Create initial run - mock document loading since /app/documents doesn't exist in tests
+        # Create initial run - mock document loading and extraction
+        # We mock the entire _execute_extraction_with_pipeline to avoid import errors
+        def mock_extraction(prompt, config, document):
+            return MOCK_EXTRACTION_RESULT
+
         with (
             patch("mvp.services.executor.DATA_DIR", temp_data_dir),
             patch("mvp.services.executor.GROUND_TRUTH_DIR", temp_ground_truth_dir),
             patch(
                 "mvp.services.executor._load_document",
                 return_value="Test document content",
+            ),
+            patch(
+                "mvp.services.executor._execute_extraction_with_pipeline",
+                mock_extraction,
             ),
         ):
             run = create_run(prompt_id, config_id, document_name)
@@ -439,9 +464,7 @@ class TestExecuteRun:
         """Test that execute_run raises error when config is missing."""
         # Get hex string from UUID object
         prompt_id = (
-            sample_prompt.id.hex
-            if hasattr(sample_prompt.id, "hex")
-            else sample_prompt.id
+            sample_prompt.id if hasattr(sample_prompt.id, "hex") else sample_prompt.id
         )
         config_id = uuid.uuid4().hex
 
@@ -466,12 +489,10 @@ class TestExecuteRun:
     ) -> None:
         """Test that execute_run raises error when ground truth is missing."""
         prompt_id = (
-            sample_prompt.id.hex
-            if hasattr(sample_prompt.id, "hex")
-            else sample_prompt.id
+            sample_prompt.id if hasattr(sample_prompt.id, "hex") else sample_prompt.id
         )
         config_id = (
-            sample_config_openai.id.hex
+            sample_config_openai.id
             if hasattr(sample_config_openai.id, "hex")
             else sample_config_openai.id
         )
@@ -504,12 +525,10 @@ class TestExecuteRun:
     ) -> None:
         """Test that execute_run updates status to running during execution."""
         prompt_id = (
-            sample_prompt.id.hex
-            if hasattr(sample_prompt.id, "hex")
-            else sample_prompt.id
+            sample_prompt.id if hasattr(sample_prompt.id, "hex") else sample_prompt.id
         )
         config_id = (
-            sample_config_openai.id.hex
+            sample_config_openai.id
             if hasattr(sample_config_openai.id, "hex")
             else sample_config_openai.id
         )
@@ -528,11 +547,25 @@ class TestExecuteRun:
         with open(gt_file, "w") as f:
             json.dump(sample_ground_truth, f)
 
-        # Create run - mock document loading
+        # Create run - mock document loading and extraction
         with (
             patch("mvp.services.executor.DATA_DIR", temp_data_dir),
             patch("mvp.services.executor.GROUND_TRUTH_DIR", temp_ground_truth_dir),
             patch("mvp.services.executor._load_document", return_value="Test content"),
+            patch(
+                "mvp.services.executor._execute_extraction_with_pipeline",
+                return_value=MOCK_EXTRACTION_RESULT,
+            ),
+            patch("mvp.services.executor.PIPELINE_AVAILABLE", True),
+            patch(
+                "mvp.services.executor.calculate_recall_accuracy",
+                return_value={
+                    "recall": 85.0,
+                    "matched": 17,
+                    "total_gt_fields": 20,
+                    "missing_paths": [],
+                },
+            ),
         ):
             run = create_run(prompt_id, config_id, document_name)
             run_id = run.id
@@ -598,12 +631,10 @@ class TestMockedExecution:
     ) -> None:
         """Test execute_run with mocked extraction pipeline."""
         prompt_id = (
-            sample_prompt.id.hex
-            if hasattr(sample_prompt.id, "hex")
-            else sample_prompt.id
+            sample_prompt.id if hasattr(sample_prompt.id, "hex") else sample_prompt.id
         )
         config_id = (
-            sample_config_openai.id.hex
+            sample_config_openai.id
             if hasattr(sample_config_openai.id, "hex")
             else sample_config_openai.id
         )
@@ -656,12 +687,10 @@ class TestMockedExecution:
     ) -> None:
         """Test that extraction failure marks run as failed."""
         prompt_id = (
-            sample_prompt.id.hex
-            if hasattr(sample_prompt.id, "hex")
-            else sample_prompt.id
+            sample_prompt.id if hasattr(sample_prompt.id, "hex") else sample_prompt.id
         )
         config_id = (
-            sample_config_openai.id.hex
+            sample_config_openai.id
             if hasattr(sample_config_openai.id, "hex")
             else sample_config_openai.id
         )
@@ -701,6 +730,15 @@ class TestMockedExecution:
 class TestExecutorIntegration:
     """Integration tests for executor service."""
 
+    @pytest.fixture(autouse=True)
+    def mock_pipeline(self, monkeypatch):
+        """Mock the extraction pipeline for all tests in this class."""
+        monkeypatch.setattr("mvp.services.executor.PIPELINE_AVAILABLE", True)
+        monkeypatch.setattr(
+            "mvp.services.executor._execute_extraction_with_pipeline",
+            lambda *args, **kwargs: MOCK_EXTRACTION_RESULT,
+        )
+
     def test_complete_workflow(
         self,
         temp_data_dir: Path,
@@ -721,12 +759,10 @@ class TestExecutorIntegration:
 
         # Get hex string IDs
         prompt_id = (
-            sample_prompt.id.hex
-            if hasattr(sample_prompt.id, "hex")
-            else sample_prompt.id
+            sample_prompt.id if hasattr(sample_prompt.id, "hex") else sample_prompt.id
         )
         config_id = (
-            sample_config_openai.id.hex
+            sample_config_openai.id
             if hasattr(sample_config_openai.id, "hex")
             else sample_config_openai.id
         )
