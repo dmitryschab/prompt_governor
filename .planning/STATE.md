@@ -2,26 +2,26 @@
 
 ## Current Position
 
-Phase: C3 - Documents API ✓ COMPLETE
-Plan: C3 (Plan 3 of Phase Group C - Backend API)
+Phase: A2 - Docker Compose Configuration ✓ COMPLETE
+Plan: A2 (Plan 2 of Phase Group A - Infrastructure)
 Status: Completed 2026-02-11
-Last completed: Created mvp/api/documents.py with FastAPI document listing endpoints
+Last completed: Created docker-compose.yml with volume mounts and hot reload
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 6 (A1, A3, A4, B1, C3, D1)
+Completed: 7 (A1, A2, A3, A4, B1, C3, D1)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
 - [x] A1: Docker Setup (COMPLETE)
-- [ ] A2: Docker Compose Configuration (pending)
+- [x] A2: Docker Compose Configuration (COMPLETE - docker-compose.yml with volume mounts)
 - [x] A3: Directory Structure Setup (COMPLETE - directories exist)
 - [x] A4: Requirements File (COMPLETE)
 - [ ] A5: Environment Configuration (pending)
 
 Phase Groups:
-- [~] Phase Group A: Infrastructure (A1-A5) - A1, A3, A4 COMPLETE
+- [~] Phase Group A: Infrastructure (A1-A5) - A1, A2, A3, A4 COMPLETE
 - [~] Phase Group B: Backend Core (B1-B4) - B1 COMPLETE
 - [~] Phase Group C: Backend API (C1-C5) - C3 COMPLETE
 - [~] Phase Group D: Frontend Core (D1-D4) - D1 COMPLETE
@@ -44,6 +44,9 @@ Phase Groups:
 | 2026-02-11 | MVP filename convention | A4 Requirements | Distinguish from future production requirements |
 | 2026-02-11 | UUID format without dashes | B1 Storage Service | Cleaner IDs and filenames (32 hex chars) |
 | 2026-02-11 | Index structure versioned | B1 Storage Service | Enables future migration support |
+| 2026-02-11 | Mount prompt_optimization read-only | A2 Docker Compose | Prevents accidental modifications to existing codebase |
+| 2026-02-11 | Override CMD in compose | A2 Docker Compose | Keeps Dockerfile generic while allowing compose-specific config |
+| 2026-02-11 | Use :ro for documents/ground_truth | A2 Docker Compose | Protects source data while allowing cache/data writes |
 
 ## Blockers & Concerns
 
@@ -51,9 +54,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 15:20:00Z
-Stopped at: Completed Phase C3 - Documents API
-Resume file: .planning/phases/C-backend-api/C3-SUMMARY.md
+Last session: 2026-02-11 15:30:00Z
+Stopped at: Completed Phase A2 - Docker Compose Configuration
+Resume file: .planning/phases/A-infrastructure/A2-SUMMARY.md
 
 ## Completed Artifacts
 
@@ -72,3 +75,11 @@ Resume file: .planning/phases/C-backend-api/C3-SUMMARY.md
   - `GET /api/documents` - List documents with filtering
   - `GET /api/documents/{name}` - Get document metadata
   - `HEAD /api/documents/{name}` - Check document existence
+- `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/docker-compose.yml` - Docker Compose configuration (A2)
+  - Service: prompt-governor with port 8000:8000
+  - 6 volume mounts including hot reload for mvp/
+  - Health check with 30s interval
+- `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/main.py` - FastAPI entry point (A2)
+  - Health endpoint: /api/health
+  - Volume test endpoint: /api/test/volumes
+  - CORS configured for frontend development
