@@ -2,9 +2,14 @@
 
 from datetime import datetime
 from typing import Dict, Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
+
+
+def generate_uuid_hex() -> str:
+    """Generate a UUID v4 in hex format (no dashes)."""
+    return uuid4().hex
 
 
 class ModelConfig(BaseModel):
@@ -14,8 +19,9 @@ class ModelConfig(BaseModel):
     configure it (temperature, max tokens, etc.).
     """
 
-    id: UUID = Field(
-        default_factory=uuid4, description="Unique identifier for this configuration"
+    id: str = Field(
+        default_factory=generate_uuid_hex,
+        description="Unique identifier for this configuration (hex format, no dashes)",
     )
     name: str = Field(..., description="Human-readable name for this configuration")
     provider: str = Field(
