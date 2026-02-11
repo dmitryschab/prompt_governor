@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-02-11T18:09:19.294394Z",
+  "source_project": "/Users/dmitrijssabelniks/Documents/projects/prompt_optimization",
+  "destination_project": "/Users/dmitrijssabelniks/Documents/projects/prompt_governor",
+  "migrated": {
+    "prompts": {
+      "count": 2,
+      "location": "/Users/dmitrijssabelniks/Documents/projects/prompt_governor/data/prompts",
+      "files": [
+        "FFH Reinsurance Contracts",
+        "FFH Reinsurance Contracts"
+      ]
+    },
+    "ground_truth": {
+      "count": 13,
+      "location": "/Users/dmitrijssabelniks/Documents/projects/prompt_governor/ground_truth"
+    },
+    "documents": {
+      "count": 0,
+      "location": "/Users/dmitrijssabelniks/Documents/projects/prompt_governor/documents"
+    }
+  },
+  "total_files": 15
+}
