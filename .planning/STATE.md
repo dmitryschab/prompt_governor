@@ -2,15 +2,15 @@
 
 ## Current Position
 
-Phase: C4 - Runs API ✓ COMPLETE
-Plan: C4 (Plan 4 of Phase Group C - Backend API)
+Phase: E1 - Prompt Management Tab ✓ COMPLETE
+Plan: E1 (Plan 1 of Phase Group E - Frontend Tabs)
 Status: Completed 2026-02-11
-Last completed: Implemented runs execution API with async background tasks, filtering, comparison, and full CRUD operations
+Last completed: Implemented Prompt Management tab with version editor, tree view, diff viewer, and tag filtering
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 16 (A1, A2, A3, A4, B1, B2, C1, C2, C3, C4, C5, D1, D2, D3, D4, E2, H1, I2)
+Completed: 18 (A1, A2, A3, A4, B1, B2, C1, C2, C3, C4, C5, D1, D2, D3, D4, E1, E2, E3, H1, I2)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
@@ -31,7 +31,7 @@ Phase Groups:
 - [~] Phase Group B: Backend Core (B1-B4) - B1, B2 COMPLETE
 - [~] Phase Group C: Backend API (C1-C5) - C1, C2, C3, C4, C5 COMPLETE
 - [~] Phase Group D: Frontend Core (D1-D4) - D1, D2, D3, D4 COMPLETE
-- [~] Phase Group E: Frontend Tabs (E1-E3) - E2 COMPLETE
+- [~] Phase Group E: Frontend Tabs (E1-E3) - E1, E2, E3 COMPLETE
 - [ ] Phase Group F: Integration (F1-F2)
 - [ ] Phase Group G: Testing (G1-G4)
 - [~] Phase Group H: Polish (H1-H3) - H1 COMPLETE
@@ -78,6 +78,15 @@ Phase Groups:
 | 2026-02-11 | 202 Accepted pattern for async runs | C4 Runs API | Returns immediately with run_id while BackgroundTasks handles execution |
 | 2026-02-11 | Lightweight metadata for list views | C4 Runs API | RunMetadata for lists (performance), full Run for details |
 | 2026-02-11 | Comprehensive run comparison | C4 Runs API | Metric diffs with percentages + field-level output comparison |
+| 2026-02-11 | Polling-based progress tracking | E3 Run & Results Tab | 2-second interval polling with indeterminate progress animation |
+| 2026-02-11 | Metrics color-coding | E3 Run & Results Tab | Green/yellow/red borders based on recall/precision/F1 thresholds |
+| 2026-02-11 | JSON diff visualization | E3 Run & Results Tab | Side-by-side comparison with added/removed/modified highlighting |
+| 2026-02-11 | Status badges in history | E3 Run & Results Tab | Visual indicators for pending/running/completed/failed states |
+| 2026-02-11 | PromptManager module pattern | E1 Prompt Management Tab | Consistent with ConfigManager and RunManager patterns |
+| 2026-02-11 | Version tree view with parent/child | E1 Prompt Management Tab | Visual representation of prompt evolution |
+| 2026-02-11 | Search + tag filtering combo | E1 Prompt Management Tab | Powerful filtering with debounced search |
+| 2026-02-11 | Modal-based diff viewer | E1 Prompt Management Tab | Block-level comparison with side-by-side view |
+| 2026-02-11 | Validation before save | E1 Prompt Management Tab | Prevents invalid JSON from being saved |
 
 ## Blockers & Concerns
 
@@ -85,9 +94,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 18:30:00Z
-Stopped at: Completed Phase C4 - Runs API
-Resume file: mvp/api/runs.py
+Last session: 2026-02-11 20:30:00Z
+Stopped at: Completed Phase E1 - Prompt Management Tab
+Resume file: static/js/app.js
 
 ## Completed Artifacts
 
@@ -217,3 +226,65 @@ Resume file: mvp/api/runs.py
   - `mvp/api/__init__.py` - Centralized router integration
     - All 4 routers included: configs, documents, prompts, runs
     - Single api_router with /api prefix
+- Run & Results Tab (E3):
+  - `static/index.html` - **Enhanced Runs tab structure**
+    - Form with validation states and required field indicators
+    - Progress bar with indeterminate animation support
+    - Results panel with prominent recall display and metric cards
+    - Diff viewer with legend (added/removed/modified)
+    - Run history list with status badges and refresh button
+  - `static/css/style.css` - **Run & Results styles (E3)**
+    - Run configuration panel with grid layout for selectors
+    - Progress bar with indeterminate animation keyframes
+    - Metric cards with color-coded borders (success/warning/error)
+    - Diff viewer with syntax highlighting and line numbers
+    - History items with status indicators and hover effects
+    - Status badges with pulse animation for running state
+    - Responsive adjustments for mobile/tablet
+  - `static/js/app.js` - **RunManager and DiffViewer modules (E3)**
+    - RunManager: 400+ lines for extraction run workflow
+      - loadDropdowns(): Load prompts, configs, documents on tab activation
+      - handleRunExtraction(): Validate form, POST to /api/runs, start polling
+      - startPolling(): 2-second interval polling with progress updates
+      - displayResults(): Show metrics, missing fields, JSON diff
+      - renderRunHistory(): Display runs with status badges and recall metrics
+      - loadRunDetails(): Load and display historical run results
+      - exportResults(): Download run as JSON file
+    - DiffViewer utility: JSON comparison with added/removed/modified detection
+     - Integration with existing API module for all HTTP calls
+     - Form validation with visual error states
+     - Loading states and toast notifications
+- Prompt Management Tab (E1):
+  - `static/index.html` - **Enhanced Prompts tab structure**
+    - Search and filter bar (search input, tag filter, clear button)
+    - Version history sidebar with tree view toggle
+    - Prompt selector dropdown with Compare button
+    - Action buttons: Save as New Version, Fork, Delete
+    - Prompt info bar (ID, Created, Parent, Tags display)
+    - JSON editor container with validation status
+    - Diff viewer modal with version selectors
+    - Save version modal with name, description, tags, fork option
+  - `static/css/style.css` - **Prompt Management styles (E1)**
+    - Prompt filters with search and tag dropdown
+    - Version list items with tree indicators
+    - Modal styling with overlay and animation
+    - Diff viewer with comparison layout
+    - Validation status indicators (valid/invalid/warning)
+    - Tag badges and info bar styling
+    - Responsive adjustments for mobile
+  - `static/js/app.js` - **PromptManager module (E1)**
+    - PromptManager: 600+ lines for prompt management
+      - loadPrompts(): Load prompts with tag filtering
+      - renderVersionList(): Flat list or tree view modes
+      - createVersionItem(): Build version list items with metadata
+      - loadPrompt(): Load and display prompt in editor
+      - saveNewVersion(): POST to /api/prompts with validation
+      - forkPrompt(): Create child version from current
+      - deletePrompt(): DELETE with confirmation
+      - showDiffModal(): Compare two versions side-by-side
+      - renderDiff(): Display block-level changes (added/removed/modified)
+      - applyFilters(): Search + tag filtering with debounce
+    - Keyboard shortcuts: Ctrl+S to save, Escape to close modals
+    - Integration with JSONEditorManager for editing
+    - Modal event handling for diff and save workflows
+
