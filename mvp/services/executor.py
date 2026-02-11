@@ -5,10 +5,13 @@ This module provides utilities for executing extraction runs, including:
 - Building model API parameters from configurations
 - Executing extraction pipelines
 - Managing run status and results
+
+This module integrates with the prompt_optimization codebase for real extraction.
 """
 
 import json
 import os
+import sys
 import time
 import uuid
 from datetime import datetime
@@ -20,6 +23,23 @@ from mvp.models.prompt import PromptVersion
 from mvp.models.run import Run
 from mvp.services.metrics import calculate_cost, calculate_metrics, extract_token_usage
 from mvp.services.storage import generate_id, load_json, save_json
+
+# Ensure prompt_optimization is in path for Docker environment
+PROMPT_OPT_DIR = Path("/app/prompt_optimization")
+if str(PROMPT_OPT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROMPT_OPT_DIR))
+
+# Pipeline integration imports (from prompt_optimization codebase)
+try:
+    from pipelines.modular_pipeline import ModularPipeline
+    from schemas.contract import Contract
+    from utils.openrouter_client import estimate_cost as estimate_openrouter_cost
+    from utils.recall_metrics import calculate_recall_accuracy
+
+    PIPELINE_AVAILABLE = True
+except ImportError as _pipeline_import_error:
+    PIPELINE_AVAILABLE = False
+    PIPELINE_ERROR = str(_pipeline_import_error)
 
 # Ground truth directory (mounted in Docker)
 GROUND_TRUTH_DIR = Path("/app/ground_truth")
@@ -60,6 +80,18 @@ class DocumentNotFoundError(ExecutorError):
 
 class ExtractionError(ExecutorError):
     """Raised when extraction pipeline fails."""
+
+    pass
+
+
+class PipelineNotAvailableError(ExecutorError):
+    """Raised when extraction pipeline is not available (import failed)."""
+
+    pass
+
+
+class SchemaValidationError(ExecutorError):
+    """Raised when extraction output fails schema validation."""
 
     pass
 
