@@ -2,9 +2,14 @@
 
 from datetime import datetime
 from typing import Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
+
+
+def generate_uuid_hex() -> str:
+    """Generate a UUID v4 in hex format (no dashes)."""
+    return uuid4().hex
 
 
 class PromptBlock(BaseModel):
@@ -27,8 +32,9 @@ class PromptVersion(BaseModel):
     It contains the structured prompt blocks and metadata for tracking versions.
     """
 
-    id: UUID = Field(
-        default_factory=uuid4, description="Unique identifier for this prompt version"
+    id: str = Field(
+        default_factory=generate_uuid_hex,
+        description="Unique identifier for this prompt version (hex format, no dashes)",
     )
     name: str = Field(..., description="Name of the prompt")
     description: Optional[str] = Field(
@@ -40,8 +46,9 @@ class PromptVersion(BaseModel):
     created_at: datetime = Field(
         default_factory=datetime.utcnow, description="When this version was created"
     )
-    parent_id: Optional[UUID] = Field(
-        None, description="ID of the parent version if this is a fork"
+    parent_id: Optional[str] = Field(
+        None,
+        description="ID of the parent version if this is a fork (hex format, no dashes)",
     )
     tags: List[str] = Field(
         default_factory=list, description="Tags for categorizing this prompt"
