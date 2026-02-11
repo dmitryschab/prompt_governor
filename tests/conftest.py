@@ -9,6 +9,7 @@ This module provides:
 import json
 import os
 import shutil
+import sys
 import tempfile
 import uuid
 from datetime import datetime
@@ -17,10 +18,6 @@ from typing import Any, Dict, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
-from mvp.services.storage import save_json, load_index, save_index, get_collection_path
-
 
 # =============================================================================
 # Test Client Fixture
@@ -38,11 +35,12 @@ def test_data_dir() -> Generator[Path, None, None]:
     data_dir = temp_dir / "data"
     data_dir.mkdir(parents=True)
 
-    # Create collection directories
+    # Create collection directories with empty indexes
     for collection in ["prompts", "configs", "runs"]:
         (data_dir / collection).mkdir(parents=True)
         # Initialize empty index
-        save_json(data_dir / collection / "index.json", {"items": [], "version": 1})
+        with open(data_dir / collection / "index.json", "w") as f:
+            json.dump({"items": [], "version": 1}, f)
 
     yield data_dir
 
@@ -74,7 +72,7 @@ def documents_dir() -> Generator[Path, None, None]:
 @pytest.fixture
 def client(
     test_data_dir: Path, documents_dir: Path
-) -> Generator[TestClient, None, None]:
+) -> Generator["TestClient", None, None]:
     """Create a test client with isolated data directories.
 
     Args:
@@ -84,9 +82,9 @@ def client(
     Yields:
         Configured TestClient instance
     """
+    from fastapi.testclient import TestClient
+
     # Documents should be at the same level as data/ (parent of data/)
-    # This is where runs.py expects to find them: get_collection_path("prompts").parent.parent / "documents"
-    # = data/prompts -> data -> . (parent of data) -> documents
     root_dir = test_data_dir.parent
     actual_docs_dir = root_dir / "documents"
     actual_docs_dir.mkdir(parents=True, exist_ok=True)
@@ -96,14 +94,30 @@ def client(
         if doc_file.is_file():
             shutil.copy2(doc_file, actual_docs_dir / doc_file.name)
 
-    # Patch storage module paths - must import app AFTER patching
-    with patch("mvp.services.storage.DATA_DIR", test_data_dir):
-        with patch("mvp.api.documents.DOCUMENTS_PATH", actual_docs_dir):
-            # Import app inside the patch context to ensure it picks up patched paths
-            from mvp.main import app
+    # Create a mock storage module with our test paths
+    import mvp.services.storage as storage_module
 
-            with TestClient(app) as test_client:
-                yield test_client
+    # Save original values
+    original_data_dir = storage_module.DATA_DIR
+
+    # Set test paths
+    storage_module.DATA_DIR = test_data_dir
+
+    # Also need to patch documents path in the documents module
+    import mvp.api.documents as documents_module
+
+    original_docs_path = documents_module.DOCUMENTS_PATH
+    documents_module.DOCUMENTS_PATH = actual_docs_dir
+
+    # Now import and create the app
+    from mvp.main import app
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    # Restore original values
+    storage_module.DATA_DIR = original_data_dir
+    documents_module.DOCUMENTS_PATH = original_docs_path
 
 
 # =============================================================================
@@ -112,7 +126,7 @@ def client(
 
 
 @pytest.fixture
-def sample_prompt_id(client: TestClient) -> str:
+def sample_prompt_id(client: "TestClient") -> str:
     """Create and return a sample prompt ID.
 
     Args:
@@ -140,12 +154,12 @@ def sample_prompt_id(client: TestClient) -> str:
     }
 
     response = client.post("/api/prompts", json=prompt_data)
-    assert response.status_code == 201
+    assert response.status_code == 201, f"Failed to create prompt: {response.text}"
     return response.json()["id"]
 
 
 @pytest.fixture
-def sample_prompt_with_parent(client: TestClient, sample_prompt_id: str) -> str:
+def sample_prompt_with_parent(client: "TestClient", sample_prompt_id: str) -> str:
     """Create a sample prompt with a parent (forked version).
 
     Args:
@@ -175,7 +189,7 @@ def sample_prompt_with_parent(client: TestClient, sample_prompt_id: str) -> str:
 
 
 @pytest.fixture
-def sample_config_id(client: TestClient) -> str:
+def sample_config_id(client: "TestClient") -> str:
     """Create and return a sample config ID.
 
     Args:
@@ -195,12 +209,12 @@ def sample_config_id(client: TestClient) -> str:
     }
 
     response = client.post("/api/configs", json=config_data)
-    assert response.status_code == 201
+    assert response.status_code == 201, f"Failed to create config: {response.text}"
     return response.json()["id"]
 
 
 @pytest.fixture
-def sample_config_anthropic(client: TestClient) -> str:
+def sample_config_anthropic(client: "TestClient") -> str:
     """Create a sample Anthropic config.
 
     Args:
@@ -224,7 +238,7 @@ def sample_config_anthropic(client: TestClient) -> str:
 
 @pytest.fixture
 def sample_run_id(
-    client: TestClient, sample_prompt_id: str, sample_config_id: str
+    client: "TestClient", sample_prompt_id: str, sample_config_id: str
 ) -> str:
     """Create and return a sample run ID.
 
@@ -246,13 +260,13 @@ def sample_run_id(
     with patch("mvp.api.runs.execute_run"):
         response = client.post("/api/runs", json=run_data)
 
-    assert response.status_code == 202
+    assert response.status_code == 202, f"Failed to create run: {response.text}"
     return response.json()["run_id"]
 
 
 @pytest.fixture
 def sample_completed_run(
-    client: TestClient,
+    client: "TestClient",
     sample_prompt_id: str,
     sample_config_id: str,
     test_data_dir: Path,
@@ -282,7 +296,6 @@ def sample_completed_run(
     run_id = response.json()["run_id"]
 
     # Manually update the run to completed status with metrics
-    # Use the test_data_dir directly instead of get_collection_path
     run_file = test_data_dir / "runs" / f"{run_id}.json"
     with open(run_file, "r") as f:
         run_data = json.load(f)
@@ -356,7 +369,7 @@ def mock_storage_error() -> Generator[MagicMock, None, None]:
 # =============================================================================
 
 
-def create_test_prompt(client: TestClient, **overrides) -> Dict[str, Any]:
+def create_test_prompt(client: "TestClient", **overrides) -> Dict[str, Any]:
     """Helper to create a test prompt with optional overrides.
 
     Args:
@@ -380,7 +393,7 @@ def create_test_prompt(client: TestClient, **overrides) -> Dict[str, Any]:
     return response.json()
 
 
-def create_test_config(client: TestClient, **overrides) -> Dict[str, Any]:
+def create_test_config(client: "TestClient", **overrides) -> Dict[str, Any]:
     """Helper to create a test config with optional overrides.
 
     Args:

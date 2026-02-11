@@ -330,7 +330,7 @@ async def create_config(request: ConfigCreateRequest) -> ModelConfig:
     """
     # Create new config with generated ID and timestamp
     config = ModelConfig(
-        id=UUID(generate_id()),
+        id=generate_id(),
         name=request.name,
         provider=request.provider,
         model_id=request.model_id,
