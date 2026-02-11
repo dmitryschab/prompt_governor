@@ -2,15 +2,15 @@
 
 ## Current Position
 
-Phase: I2 - API Documentation Setup ✓ COMPLETE
-Plan: I2 (Plan 2 of Phase Group I - Documentation)
+Phase: C5 - API Router Integration ✓ COMPLETE
+Plan: C5 (Plan 5 of Phase Group C - Backend API)
 Status: Completed 2026-02-11
-Last completed: API documentation structure with standardized response schemas and router exports
+Last completed: Integrated all API routers with error handlers and startup events
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 13 (A1, A2, A3, A4, B1, B2, C3, D1, D2, D3, H1, I1-01, I2)
+Completed: 14 (A1, A2, A3, A4, B1, B2, C3, D1, D2, D3, D4, H1, I1-01, I2)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
@@ -29,8 +29,8 @@ Phase B: Backend Core
 Phase Groups:
 - [~] Phase Group A: Infrastructure (A1-A5) - A1, A2, A3, A4 COMPLETE
 - [~] Phase Group B: Backend Core (B1-B4) - B1, B2 COMPLETE
-- [~] Phase Group C: Backend API (C1-C5) - C3 COMPLETE
-- [~] Phase Group D: Frontend Core (D1-D4) - D1, D2, D3 COMPLETE
+- [~] Phase Group C: Backend API (C1-C5) - C1, C2, C3, C5 COMPLETE
+- [~] Phase Group D: Frontend Core (D1-D4) - D1, D2, D3, D4 COMPLETE
 - [ ] Phase Group E: Frontend Tabs (E1-E3)
 - [ ] Phase Group F: Integration (F1-F2)
 - [ ] Phase Group G: Testing (G1-G4)
@@ -67,6 +67,11 @@ Phase Groups:
 | 2026-02-11 | Centralized API router pattern | I2 API Documentation | Single api_router with prefix instead of individual includes |
 | 2026-02-11 | Generic response types | I2 API Documentation | Type-safe wrappers using Python generics for ListResponse[T] and SuccessResponse[T] |
 | 2026-02-11 | Response schemas in separate module | I2 API Documentation | Dedicated responses.py for API response patterns |
+| 2026-02-11 | Component-based architecture for JSON editor | D4 JSON Editor | Reusable JSONEditor class with configurable options |
+| 2026-02-11 | Debounced validation for performance | D4 JSON Editor | 300ms delay prevents excessive validation on every keystroke |
+| 2026-02-11 | Custom line numbers implementation | D4 JSON Editor | Synchronized scrolling with current line highlighting, no external deps |
+| 2026-02-11 | FastAPI lifespan for startup events | C5 Router Integration | Ensures data directories exist before handling requests, replaces deprecated @app.on_event |
+| 2026-02-11 | Unified error handler registration | C5 Router Integration | Single register_exception_handlers() call wires all custom exception handlers |
 
 ## Blockers & Concerns
 
@@ -74,9 +79,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 13:14:00Z
-Stopped at: Completed Phase I2 - API Documentation Setup
-Resume file: .planning/phases/I-documentation/I2-SUMMARY.md
+Last session: 2026-02-11 17:00:00Z
+Stopped at: Completed Phase C5 - API Router Integration
+Resume file: mvp/main.py
 
 ## Completed Artifacts
 
@@ -104,6 +109,15 @@ Resume file: .planning/phases/I-documentation/I2-SUMMARY.md
     - Error handling with user-friendly messages
     - API status monitoring with periodic health checks
     - 1078 lines of modular, documented JavaScript
+  - `js/components/json-editor.js` - **Reusable JSON Editor Component (D4)**
+    - JSONEditor class with configurable options (readOnly, lineNumbers, height)
+    - Line numbers with synchronized scrolling and current line highlighting
+    - Real-time JSON validation with error indicators and tooltips
+    - Format/Compact toolbar actions with visual feedback
+    - Status indicator (Valid/Invalid) and character count
+    - Auto-indentation, tab support, and smart editing
+    - 10MB file size limit with debounced validation
+    - 480 lines of well-documented, reusable component code
 - Directory structure: `data/`, `documents/`, `ground_truth/`, `cache/` (A3)
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/services/storage.py` - File-based JSON storage utilities (B1)
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/api/documents.py` - FastAPI documents endpoints (C3)
@@ -151,3 +165,32 @@ Resume file: .planning/phases/I-documentation/I2-SUMMARY.md
     - `GET /api/prompts/{id}/diff/{other_id}` - Compare two versions
   - Block-level diff comparison with added/removed/modified tracking
   - Index-based listing for efficient metadata retrieval
+- Config API (C2):
+  - `mvp/api/configs.py` - Model configuration endpoints (403 lines)
+    - `GET /api/configs` - List all configurations
+    - `GET /api/configs/{id}` - Get config by ID
+    - `POST /api/configs` - Create new config
+    - `PUT /api/configs/{id}` - Update config
+    - `DELETE /api/configs/{id}` - Delete config
+  - Provider validation (openai, anthropic, openrouter)
+  - Temperature and reasoning_effort validators
+- Runs API (C4 - Stub):
+  - `mvp/api/runs.py` - Extraction runs endpoints (stub implementation)
+    - `GET /api/runs` - List runs with filtering (prompt_id, config_id, status)
+    - `GET /api/runs/{id}` - Get run details
+    - `POST /api/runs` - Create new run (queues for execution)
+    - `DELETE /api/runs/{id}` - Delete run
+    - `GET /api/runs/{id}/compare/{other_id}` - Compare two runs
+  - Full implementation requires Phase B4 (Executor Service) integration
+- API Router Integration (C5):
+  - `mvp/main.py` - Updated FastAPI application (99 lines)
+    - Lifespan startup event for data directory initialization
+    - Error handler registration via register_exception_handlers()
+    - CORS middleware configured for frontend (allow_origins=["*"] in dev)
+    - Static files mounted at /static
+    - Root endpoint / serves index.html
+    - Health check at /api/health
+    - Volume test at /api/test/volumes
+  - `mvp/api/__init__.py` - Centralized router integration
+    - All 4 routers included: configs, documents, prompts, runs
+    - Single api_router with /api prefix
