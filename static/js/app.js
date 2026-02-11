@@ -1452,6 +1452,827 @@
     };
 
     // ============================================
+    // RUN & RESULTS MANAGER (Phase E3)
+    // ============================================
+    const RunManager = {
+        currentRunId: null,
+        pollInterval: null,
+        pollIntervalMs: 2000,
+
+        /**
+         * Initialize the Run & Results tab
+         */
+        init() {
+            this.bindEvents();
+            this.setupTabListener();
+        },
+
+        /**
+         * Set up tab change listener to load dropdowns when runs tab is activated
+         */
+        setupTabListener() {
+            window.addEventListener('tabchange', (e) => {
+                if (e.detail.tab === 'runs') {
+                    this.loadDropdowns();
+                    this.loadRunHistory();
+                }
+            });
+        },
+
+        /**
+         * Bind event listeners
+         */
+        bindEvents() {
+            // Run extraction button
+            const runBtn = document.getElementById('run-extraction-btn');
+            if (runBtn) {
+                runBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.handleRunExtraction();
+                });
+            }
+
+            // Reset button
+            const resetBtn = document.getElementById('reset-run-btn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    this.resetForm();
+                });
+            }
+
+            // Refresh history button
+            const refreshBtn = document.getElementById('refresh-history-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    this.loadRunHistory();
+                });
+            }
+
+            // Export results button
+            const exportBtn = document.getElementById('export-results-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    this.exportResults();
+                });
+            }
+
+            // Dropdown change listeners for validation
+            ['run-prompt-select', 'run-config-select', 'run-document-select'].forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    select.addEventListener('change', () => {
+                        this.clearFieldError(id);
+                    });
+                }
+            });
+        },
+
+        /**
+         * Load all dropdowns (prompts, configs, documents)
+         */
+        async loadDropdowns() {
+            try {
+                Utils.updateStatus('Loading dropdowns...', 'loading');
+
+                await Promise.all([
+                    this.loadPrompts(),
+                    this.loadConfigs(),
+                    this.loadDocuments()
+                ]);
+
+                Utils.updateStatus('Ready');
+            } catch (error) {
+                Utils.handleError(error, { context: 'Loading dropdowns' });
+            }
+        },
+
+        /**
+         * Load prompts into dropdown
+         */
+        async loadPrompts() {
+            const select = document.getElementById('run-prompt-select');
+            if (!select) return;
+
+            try {
+                const response = await API.get('/prompts');
+                const prompts = response.data || response || [];
+
+                // Clear existing options except first
+                select.innerHTML = '<option value="">Select prompt...</option>';
+
+                prompts.forEach(prompt => {
+                    const option = document.createElement('option');
+                    option.value = prompt.id;
+                    option.textContent = prompt.name || prompt.id;
+                    if (prompt.description) {
+                        option.title = prompt.description;
+                    }
+                    select.appendChild(option);
+                });
+
+                State.set('prompts', prompts);
+            } catch (error) {
+                console.warn('Failed to load prompts:', error);
+                select.innerHTML = '<option value="">Error loading prompts</option>';
+            }
+        },
+
+        /**
+         * Load configs into dropdown
+         */
+        async loadConfigs() {
+            const select = document.getElementById('run-config-select');
+            if (!select) return;
+
+            try {
+                const response = await API.get('/configs');
+                const configs = response.data || response || [];
+
+                // Clear existing options except first
+                select.innerHTML = '<option value="">Select config...</option>';
+
+                configs.forEach(config => {
+                    const option = document.createElement('option');
+                    option.value = config.id;
+                    option.textContent = config.name || `${config.provider} - ${config.model_id}`;
+                    if (config.description) {
+                        option.title = config.description;
+                    }
+                    select.appendChild(option);
+                });
+
+                State.set('configs', configs);
+            } catch (error) {
+                console.warn('Failed to load configs:', error);
+                select.innerHTML = '<option value="">Error loading configs</option>';
+            }
+        },
+
+        /**
+         * Load documents into dropdown
+         */
+        async loadDocuments() {
+            const select = document.getElementById('run-document-select');
+            if (!select) return;
+
+            try {
+                const response = await API.get('/documents');
+                const documents = response.data || response || [];
+
+                // Clear existing options except first
+                select.innerHTML = '<option value="">Select document...</option>';
+
+                documents.forEach(doc => {
+                    const option = document.createElement('option');
+                    option.value = doc.name || doc.id;
+                    option.textContent = doc.name || doc.id;
+                    if (doc.word_count) {
+                        option.textContent += ` (${doc.word_count} words)`;
+                    }
+                    select.appendChild(option);
+                });
+
+                State.set('documents', documents);
+            } catch (error) {
+                console.warn('Failed to load documents:', error);
+                select.innerHTML = '<option value="">Error loading documents</option>';
+            }
+        },
+
+        /**
+         * Handle run extraction button click
+         */
+        async handleRunExtraction() {
+            // Validate form
+            if (!this.validateForm()) {
+                Utils.showToast('Please fill in all required fields', 'warning');
+                return;
+            }
+
+            const promptId = document.getElementById('run-prompt-select').value;
+            const configId = document.getElementById('run-config-select').value;
+            const documentName = document.getElementById('run-document-select').value;
+
+            try {
+                this.setLoading(true);
+                this.showProgress();
+                this.hideResults();
+
+                // Create run
+                const response = await API.post('/runs', {
+                    prompt_id: promptId,
+                    config_id: configId,
+                    document_name: documentName
+                });
+
+                const run = response.data || response;
+                this.currentRunId = run.id;
+
+                Utils.showToast('Extraction started', 'info');
+
+                // Start polling for status
+                this.startPolling(run.id);
+
+            } catch (error) {
+                this.setLoading(false);
+                this.hideProgress();
+                Utils.handleError(error, { context: 'Starting extraction run' });
+            }
+        },
+
+        /**
+         * Validate form inputs
+         */
+        validateForm() {
+            let isValid = true;
+
+            const fields = [
+                { id: 'run-prompt-select', errorId: 'prompt-error', name: 'Prompt' },
+                { id: 'run-config-select', errorId: 'config-error', name: 'Configuration' },
+                { id: 'run-document-select', errorId: 'document-error', name: 'Document' }
+            ];
+
+            fields.forEach(field => {
+                const select = document.getElementById(field.id);
+                if (!select || !select.value) {
+                    this.showFieldError(field.id, field.errorId, `${field.name} is required`);
+                    isValid = false;
+                } else {
+                    this.clearFieldError(field.id);
+                }
+            });
+
+            return isValid;
+        },
+
+        /**
+         * Show field error
+         */
+        showFieldError(fieldId, errorId, message) {
+            const field = document.getElementById(fieldId);
+            const error = document.getElementById(errorId);
+
+            if (field) {
+                field.classList.add('error');
+            }
+            if (error) {
+                error.textContent = message;
+            }
+        },
+
+        /**
+         * Clear field error
+         */
+        clearFieldError(fieldId) {
+            const field = document.getElementById(fieldId);
+            const errorId = fieldId.replace('select', 'error');
+            const error = document.getElementById(errorId);
+
+            if (field) {
+                field.classList.remove('error');
+            }
+            if (error) {
+                error.textContent = '';
+            }
+        },
+
+        /**
+         * Set loading state on run button
+         */
+        setLoading(loading) {
+            const btn = document.getElementById('run-extraction-btn');
+            if (!btn) return;
+
+            const btnText = btn.querySelector('.btn-text');
+            const btnSpinner = btn.querySelector('.btn-spinner');
+
+            btn.disabled = loading;
+
+            if (btnText) {
+                btnText.textContent = loading ? 'Running...' : 'Run Extraction';
+            }
+            if (btnSpinner) {
+                btnSpinner.style.display = loading ? 'inline-block' : 'none';
+            }
+        },
+
+        /**
+         * Show progress indicator
+         */
+        showProgress() {
+            const progress = document.getElementById('run-progress');
+            if (progress) {
+                progress.style.display = 'block';
+            }
+
+            // Set indeterminate animation
+            const fill = document.getElementById('progress-fill');
+            if (fill) {
+                fill.classList.add('indeterminate');
+                fill.style.width = '0%';
+            }
+
+            const text = document.getElementById('progress-text');
+            if (text) {
+                text.textContent = 'Initializing extraction...';
+            }
+        },
+
+        /**
+         * Hide progress indicator
+         */
+        hideProgress() {
+            const progress = document.getElementById('run-progress');
+            if (progress) {
+                progress.style.display = 'none';
+            }
+        },
+
+        /**
+         * Update progress display
+         */
+        updateProgress(status, progress) {
+            const fill = document.getElementById('progress-fill');
+            const text = document.getElementById('progress-text');
+
+            if (fill) {
+                fill.classList.remove('indeterminate');
+                fill.style.width = `${progress}%`;
+            }
+
+            if (text) {
+                const statusMessages = {
+                    'pending': 'Waiting to start...',
+                    'running': 'Extracting data...',
+                    'completed': 'Complete!',
+                    'failed': 'Failed'
+                };
+                text.textContent = statusMessages[status] || status;
+            }
+        },
+
+        /**
+         * Start polling for run status
+         */
+        startPolling(runId) {
+            // Clear any existing polling
+            this.stopPolling();
+
+            this.pollInterval = setInterval(async () => {
+                try {
+                    const response = await API.get(`/runs/${runId}`);
+                    const run = response.data || response;
+
+                    // Calculate progress based on status (API doesn't have explicit progress field)
+                    const progressMap = {
+                        'pending': 10,
+                        'running': 50,
+                        'completed': 100,
+                        'failed': 100
+                    };
+                    const progress = run.progress || progressMap[run.status] || 0;
+
+                    this.updateProgress(run.status, progress);
+
+                    if (run.status === 'completed') {
+                        this.stopPolling();
+                        this.setLoading(false);
+                        this.hideProgress();
+                        this.displayResults(run);
+                        this.loadRunHistory();
+                        Utils.showToast('Extraction completed!', 'success');
+                    } else if (run.status === 'failed') {
+                        this.stopPolling();
+                        this.setLoading(false);
+                        this.hideProgress();
+                        this.displayError(run);
+                        this.loadRunHistory();
+                        Utils.showToast('Extraction failed', 'error');
+                    }
+
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, this.pollIntervalMs);
+        },
+
+        /**
+         * Stop polling
+         */
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+                this.pollInterval = null;
+            }
+        },
+
+        /**
+         * Display run results
+         */
+        displayResults(run) {
+            // The run object structure from API:
+            // - metrics: { recall, precision, f1, ... }
+            // - output: extracted data
+            // - tokens: { input, output, total }
+            // - cost_usd: cost
+            // - status: completion status
+
+            // Show results panel
+            const panel = document.getElementById('results-panel');
+            if (panel) {
+                panel.style.display = 'block';
+            }
+
+            // Update metrics (from run.metrics)
+            const metrics = run.metrics || {};
+            this.updateMetric('metric-recall', metrics.recall, true);
+            this.updateMetric('metric-precision', metrics.precision, true);
+            this.updateMetric('metric-f1', metrics.f1 || metrics.f1_score, true);
+
+            // Cost and tokens
+            this.updateMetric('metric-cost', run.cost_usd, false, '$');
+            const totalTokens = run.tokens ? (run.tokens.total || run.tokens.input + run.tokens.output) : null;
+            this.updateMetric('metric-tokens', totalTokens, false);
+
+            // Update missing fields (from metrics.missing_fields)
+            this.displayMissingFields(metrics.missing_fields || []);
+
+            // Display diff (output vs ground_truth from metrics)
+            this.displayDiff(run.output, metrics.ground_truth || {});
+
+            // Store current run
+            State.set('currentRun', run);
+        },
+
+        /**
+         * Update a metric display
+         */
+        updateMetric(elementId, value, isPercentage = false, prefix = '') {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            if (value === null || value === undefined || isNaN(value)) {
+                element.textContent = isPercentage ? '--%' : `${prefix}--`;
+                return;
+            }
+
+            const numValue = parseFloat(value);
+
+            if (isPercentage) {
+                // Convert 0-1 to percentage if needed
+                const pct = numValue <= 1 ? numValue * 100 : numValue;
+                element.textContent = `${pct.toFixed(1)}%`;
+
+                // Color code based on value
+                const card = element.closest('.metric-card');
+                if (card) {
+                    card.classList.remove('success', 'warning', 'error');
+                    if (pct >= 80) {
+                        card.classList.add('success');
+                    } else if (pct >= 50) {
+                        card.classList.add('warning');
+                    } else {
+                        card.classList.add('error');
+                    }
+                }
+            } else {
+                element.textContent = prefix + Utils.formatNumber(numValue, 2);
+            }
+        },
+
+        /**
+         * Display missing fields
+         */
+        displayMissingFields(fields) {
+            const list = document.getElementById('missing-fields-list');
+            const count = document.getElementById('missing-fields-count');
+
+            if (!list) return;
+
+            if (count) {
+                count.textContent = fields.length;
+                count.className = 'badge' + (fields.length > 0 ? ' warning' : '');
+            }
+
+            if (fields.length === 0) {
+                list.innerHTML = '<li class="empty">No missing fields</li>';
+                return;
+            }
+
+            list.innerHTML = fields.map(field =>
+                `<li>${Utils.escapeHtml(field)}</li>`
+            ).join('');
+        },
+
+        /**
+         * Display JSON diff
+         */
+        displayDiff(output, groundTruth) {
+            const content = document.getElementById('diff-content');
+            if (!content) return;
+
+            if (!output || !groundTruth) {
+                content.innerHTML = '<div class="empty-state">No diff data available</div>';
+                return;
+            }
+
+            const diff = DiffViewer.compare(output, groundTruth);
+            content.innerHTML = DiffViewer.render(diff);
+        },
+
+        /**
+         * Display error state
+         */
+        displayError(run) {
+            const panel = document.getElementById('results-panel');
+            if (panel) {
+                panel.style.display = 'block';
+                panel.innerHTML = `
+                    <div class="error-state">
+                        <h3>❌ Extraction Failed</h3>
+                        <p>${Utils.escapeHtml(run.error || 'Unknown error occurred')}</p>
+                    </div>
+                `;
+            }
+        },
+
+        /**
+         * Hide results panel
+         */
+        hideResults() {
+            const panel = document.getElementById('results-panel');
+            if (panel) {
+                panel.style.display = 'none';
+            }
+        },
+
+        /**
+         * Load run history
+         */
+        async loadRunHistory() {
+            const list = document.getElementById('history-list');
+            if (!list) return;
+
+            try {
+                const response = await API.get('/runs?limit=20');
+                const runs = response.data || response || [];
+
+                State.set('runs', runs);
+                this.renderRunHistory(runs);
+            } catch (error) {
+                console.warn('Failed to load run history:', error);
+                list.innerHTML = '<div class="empty-state">Failed to load history</div>';
+            }
+        },
+
+        /**
+         * Render run history list
+         */
+        renderRunHistory(runs) {
+            const list = document.getElementById('history-list');
+            if (!list) return;
+
+            if (runs.length === 0) {
+                list.innerHTML = '<div class="empty-state">No runs yet</div>';
+                return;
+            }
+
+            list.innerHTML = runs.map(run => {
+                const statusIcon = {
+                    'pending': '⏳',
+                    'running': '🔄',
+                    'completed': '✅',
+                    'failed': '❌'
+                }[run.status] || '❓';
+
+                const isActive = run.id === this.currentRunId;
+
+                // Handle both API response formats:
+                // - run.metrics for full run objects
+                // - run.recall, run.precision for RunMetadata (from list endpoint)
+                let recall = null;
+                if (run.metrics && run.status === 'completed') {
+                    recall = run.metrics.recall;
+                } else if (run.recall !== undefined) {
+                    recall = run.recall;
+                }
+
+                let metrics = '';
+                if (recall !== null && recall !== undefined) {
+                    const recallPct = recall <= 1 ? (recall * 100).toFixed(0) : recall.toFixed(0);
+                    metrics = `
+                        <div class="history-metrics">
+                            <div class="history-metric">
+                                <div class="history-metric-value">${recallPct}%</div>
+                                <div class="history-metric-label">Recall</div>
+                            </div>
+                            <span class="status-badge ${run.status}">${run.status}</span>
+                        </div>
+                    `;
+                } else {
+                    metrics = `
+                        <div class="history-metrics">
+                            <span class="status-badge ${run.status}">${run.status}</span>
+                        </div>
+                    `;
+                }
+
+                // Use started_at (API format) or created_at (frontend format)
+                const dateField = run.started_at || run.created_at;
+
+                return `
+                    <div class="history-item ${isActive ? 'active' : ''}" data-run-id="${run.id}">
+                        <div class="history-status ${run.status}">${statusIcon}</div>
+                        <div class="history-info">
+                            <div class="history-title">${Utils.escapeHtml(run.document_name || 'Unknown')}</div>
+                            <div class="history-meta">
+                                ${Utils.formatRelativeTime(dateField)} •
+                                ${Utils.escapeHtml(run.prompt_id ? run.prompt_id.substring(0, 8) + '...' : 'Unknown')}
+                            </div>
+                        </div>
+                        ${metrics}
+                    </div>
+                `;
+            }).join('');
+
+            // Add click handlers
+            list.querySelectorAll('.history-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const runId = item.dataset.runId;
+                    this.loadRunDetails(runId);
+                });
+            });
+        },
+
+        /**
+         * Load and display run details
+         */
+        async loadRunDetails(runId) {
+            try {
+                Utils.showLoading();
+                const response = await API.get(`/runs/${runId}`);
+                const run = response.data || response;
+
+                this.currentRunId = run.id;
+
+                // Update form with run's selections (handle both UUID and string formats)
+                const promptSelect = document.getElementById('run-prompt-select');
+                const configSelect = document.getElementById('run-config-select');
+                const docSelect = document.getElementById('run-document-select');
+
+                if (promptSelect) promptSelect.value = run.prompt_id || '';
+                if (configSelect) configSelect.value = run.config_id || '';
+                if (docSelect) docSelect.value = run.document_name || '';
+
+                // Display results based on status
+                if (run.status === 'completed' && run.metrics) {
+                    this.displayResults(run);
+                } else if (run.status === 'failed') {
+                    this.displayError(run);
+                } else {
+                    // For pending/running, just show progress
+                    this.showProgress();
+                    if (run.status === 'running') {
+                        this.startPolling(run.id);
+                    }
+                }
+
+                // Update active state in history
+                this.renderRunHistory(State.get('runs', []));
+
+                Utils.hideLoading();
+            } catch (error) {
+                Utils.hideLoading();
+                Utils.handleError(error, { context: 'Loading run details' });
+            }
+        },
+
+        /**
+         * Reset the form
+         */
+        resetForm() {
+            document.getElementById('run-form').reset();
+            this.hideResults();
+            this.hideProgress();
+            this.stopPolling();
+            this.setLoading(false);
+            this.currentRunId = null;
+
+            // Clear field errors
+            ['run-prompt-select', 'run-config-select', 'run-document-select'].forEach(id => {
+                this.clearFieldError(id);
+            });
+
+            // Update history active state
+            this.renderRunHistory(State.get('runs', []));
+
+            Utils.showToast('Form reset', 'info');
+        },
+
+        /**
+         * Export results as JSON
+         */
+        exportResults() {
+            const run = State.get('currentRun');
+            if (!run) {
+                Utils.showToast('No results to export', 'warning');
+                return;
+            }
+
+            const data = JSON.stringify(run, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `run-${run.id}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+            Utils.showToast('Results exported', 'success');
+        }
+    };
+
+    // ============================================
+    // DIFF VIEWER UTILITY
+    // ============================================
+    const DiffViewer = {
+        /**
+         * Compare two objects and generate diff
+         */
+        compare(output, groundTruth) {
+            const diffs = [];
+
+            const allKeys = new Set([
+                ...Object.keys(output || {}),
+                ...Object.keys(groundTruth || {})
+            ]);
+
+            allKeys.forEach(key => {
+                const outVal = output?.[key];
+                const gtVal = groundTruth?.[key];
+
+                if (!(key in output)) {
+                    diffs.push({ key, type: 'removed', value: gtVal, groundTruth: gtVal });
+                } else if (!(key in groundTruth)) {
+                    diffs.push({ key, type: 'added', value: outVal, output: outVal });
+                } else if (JSON.stringify(outVal) !== JSON.stringify(gtVal)) {
+                    diffs.push({
+                        key,
+                        type: 'modified',
+                        value: outVal,
+                        output: outVal,
+                        groundTruth: gtVal
+                    });
+                }
+            });
+
+            return diffs;
+        },
+
+        /**
+         * Render diff as HTML
+         */
+        render(diffs) {
+            if (diffs.length === 0) {
+                return '<div class="empty-state">No differences found</div>';
+            }
+
+            return diffs.map((diff, index) => {
+                const typeClass = diff.type;
+                const icon = {
+                    'added': '+',
+                    'removed': '-',
+                    'modified': '~'
+                }[diff.type];
+
+                let content = '';
+                if (diff.type === 'modified') {
+                    content = `
+                        <div class="diff-old">- ${Utils.escapeHtml(JSON.stringify(diff.groundTruth))}</div>
+                        <div class="diff-new">+ ${Utils.escapeHtml(JSON.stringify(diff.output))}</div>
+                    `;
+                } else {
+                    content = `<div>${icon} ${Utils.escapeHtml(JSON.stringify(diff.value))}</div>
+                    `;
+                }
+
+                return `
+                    <div class="diff-line ${typeClass}">
+                        <span class="diff-line-number">${index + 1}</span>
+                        <div class="diff-line-content">
+                            <span class="diff-key">"${Utils.escapeHtml(diff.key)}"</span>:
+                            ${content}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    };
+
+    // ============================================
     // DATA LOADING
     // ============================================
     const DataLoader = {
@@ -1597,32 +2418,884 @@
     };
 
     // ============================================
+    // PROMPT MANAGER
+    // ============================================
+    const PromptManager = {
+        currentPromptId: null,
+        prompts: [],
+        filteredPrompts: [],
+        
+        /**
+         * Initialize the Prompt Manager
+         */
+        init() {
+            this.attachEventListeners();
+            this.loadPrompts();
+        },
+        
+        /**
+         * Attach event listeners
+         */
+        attachEventListeners() {
+            // Search input
+            const searchInput = document.getElementById('prompt-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', Utils.debounce(() => {
+                    this.applyFilters();
+                }, 300));
+            }
+            
+            // Tag filter
+            const tagFilter = document.getElementById('tag-filter');
+            if (tagFilter) {
+                tagFilter.addEventListener('change', () => {
+                    this.applyFilters();
+                });
+            }
+            
+            // Clear filters
+            const clearBtn = document.getElementById('clear-filters-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    this.clearFilters();
+                });
+            }
+            
+            // Prompt selector
+            const selector = document.getElementById('prompt-selector');
+            if (selector) {
+                selector.addEventListener('change', (e) => {
+                    if (e.target.value) {
+                        this.loadPrompt(e.target.value);
+                    }
+                });
+            }
+            
+            // New prompt button
+            const newBtn = document.getElementById('new-prompt-btn');
+            if (newBtn) {
+                newBtn.addEventListener('click', () => {
+                    this.newPrompt();
+                });
+            }
+            
+            // Save version button
+            const saveBtn = document.getElementById('save-version-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => {
+                    this.showSaveVersionModal();
+                });
+            }
+            
+            // Fork button
+            const forkBtn = document.getElementById('fork-prompt-btn');
+            if (forkBtn) {
+                forkBtn.addEventListener('click', () => {
+                    this.forkPrompt();
+                });
+            }
+            
+            // Delete button
+            const deleteBtn = document.getElementById('delete-prompt-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => {
+                    this.deletePrompt();
+                });
+            }
+            
+            // Compare button
+            const compareBtn = document.getElementById('compare-btn');
+            if (compareBtn) {
+                compareBtn.addEventListener('click', () => {
+                    this.showDiffModal();
+                });
+            }
+            
+            // Tree view toggle
+            const treeToggle = document.getElementById('show-tree-view');
+            if (treeToggle) {
+                treeToggle.addEventListener('change', () => {
+                    this.renderVersionList();
+                });
+            }
+            
+            // Modal close buttons
+            this.setupModalListeners();
+            
+            // Load prompts when prompts tab is shown
+            window.addEventListener('tabchange', (e) => {
+                if (e.detail.tab === 'prompts') {
+                    this.loadPrompts();
+                }
+            });
+        },
+        
+        /**
+         * Setup modal event listeners
+         */
+        setupModalListeners() {
+            // Diff modal
+            const diffModal = document.getElementById('diff-modal');
+            const closeDiffBtn = document.getElementById('close-diff-modal');
+            const loadDiffBtn = document.getElementById('load-diff-btn');
+            
+            if (closeDiffBtn) {
+                closeDiffBtn.addEventListener('click', () => {
+                    if (diffModal) diffModal.style.display = 'none';
+                });
+            }
+            
+            if (loadDiffBtn) {
+                loadDiffBtn.addEventListener('click', () => {
+                    this.loadDiff();
+                });
+            }
+            
+            // Save version modal
+            const saveModal = document.getElementById('save-version-modal');
+            const closeSaveBtn = document.getElementById('close-save-modal');
+            const cancelSaveBtn = document.getElementById('cancel-save-btn');
+            const saveVersionForm = document.getElementById('save-version-form');
+            
+            if (closeSaveBtn) {
+                closeSaveBtn.addEventListener('click', () => {
+                    if (saveModal) saveModal.style.display = 'none';
+                });
+            }
+            
+            if (cancelSaveBtn) {
+                cancelSaveBtn.addEventListener('click', () => {
+                    if (saveModal) saveModal.style.display = 'none';
+                });
+            }
+            
+            if (saveVersionForm) {
+                saveVersionForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.saveNewVersion();
+                });
+            }
+            
+            // Close modals on overlay click
+            document.querySelectorAll('.modal-overlay').forEach(overlay => {
+                overlay.addEventListener('click', (e) => {
+                    e.target.closest('.modal').style.display = 'none';
+                });
+            });
+        },
+        
+        /**
+         * Load all prompts from API
+         */
+        async loadPrompts() {
+            try {
+                Utils.updateStatus('Loading prompts...', 'loading');
+                
+                const response = await API.get('/prompts');
+                this.prompts = response.prompts || [];
+                this.filteredPrompts = [...this.prompts];
+                
+                State.set('prompts', this.prompts);
+                
+                this.updateTagFilter();
+                this.renderVersionList();
+                this.updatePromptSelector();
+                
+                Utils.updateStatus(`Loaded ${this.prompts.length} prompts`);
+            } catch (error) {
+                Utils.handleError(error, { context: 'Loading prompts' });
+                this.prompts = [];
+                this.filteredPrompts = [];
+                this.renderVersionList();
+            }
+        },
+        
+        /**
+         * Load a specific prompt by ID
+         * @param {string} promptId - Prompt ID to load
+         */
+        async loadPrompt(promptId) {
+            try {
+                Utils.updateStatus('Loading prompt...', 'loading');
+                
+                const prompt = await API.get(`/prompts/${promptId}`);
+                this.currentPromptId = promptId;
+                State.set('currentPrompt', prompt);
+                
+                // Update editor
+                JSONEditorManager.setPromptValue(prompt);
+                
+                // Update UI
+                this.updatePromptInfo(prompt);
+                this.highlightSelectedVersion(promptId);
+                this.updatePromptSelectorValue(promptId);
+                
+                Utils.updateStatus(`Loaded prompt: ${prompt.name}`);
+            } catch (error) {
+                Utils.handleError(error, { context: 'Loading prompt' });
+            }
+        },
+        
+        /**
+         * Update tag filter dropdown
+         */
+        updateTagFilter() {
+            const tagFilter = document.getElementById('tag-filter');
+            if (!tagFilter) return;
+            
+            // Collect all unique tags
+            const allTags = new Set();
+            this.prompts.forEach(prompt => {
+                (prompt.tags || []).forEach(tag => allTags.add(tag));
+            });
+            
+            // Save current selection
+            const currentValue = tagFilter.value;
+            
+            // Rebuild options
+            tagFilter.innerHTML = '<option value="">All tags</option>';
+            Array.from(allTags).sort().forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag;
+                option.textContent = tag;
+                tagFilter.appendChild(option);
+            });
+            
+            // Restore selection if still valid
+            if (currentValue && allTags.has(currentValue)) {
+                tagFilter.value = currentValue;
+            }
+        },
+        
+        /**
+         * Apply search and tag filters
+         */
+        applyFilters() {
+            const searchInput = document.getElementById('prompt-search');
+            const tagFilter = document.getElementById('tag-filter');
+            
+            const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const selectedTag = tagFilter ? tagFilter.value : '';
+            
+            this.filteredPrompts = this.prompts.filter(prompt => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    prompt.name.toLowerCase().includes(searchTerm) ||
+                    (prompt.description && prompt.description.toLowerCase().includes(searchTerm));
+                
+                // Tag filter
+                const matchesTag = !selectedTag || 
+                    (prompt.tags || []).includes(selectedTag);
+                
+                return matchesSearch && matchesTag;
+            });
+            
+            this.renderVersionList();
+        },
+        
+        /**
+         * Clear all filters
+         */
+        clearFilters() {
+            const searchInput = document.getElementById('prompt-search');
+            const tagFilter = document.getElementById('tag-filter');
+            
+            if (searchInput) searchInput.value = '';
+            if (tagFilter) tagFilter.value = '';
+            
+            this.filteredPrompts = [...this.prompts];
+            this.renderVersionList();
+        },
+        
+        /**
+         * Render version list in sidebar
+         */
+        renderVersionList() {
+            const listContainer = document.getElementById('prompt-list');
+            if (!listContainer) return;
+            
+            if (this.filteredPrompts.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No prompts found</div>';
+                return;
+            }
+            
+            const showTree = document.getElementById('show-tree-view')?.checked || false;
+            
+            if (showTree) {
+                this.renderTreeView(listContainer);
+            } else {
+                this.renderFlatList(listContainer);
+            }
+        },
+        
+        /**
+         * Render flat list view
+         * @param {HTMLElement} container - Container element
+         */
+        renderFlatList(container) {
+            container.innerHTML = '';
+            
+            this.filteredPrompts.forEach(prompt => {
+                const item = this.createVersionItem(prompt);
+                container.appendChild(item);
+            });
+        },
+        
+        /**
+         * Render tree view showing parent/child relationships
+         * @param {HTMLElement} container - Container element
+         */
+        renderTreeView(container) {
+            container.innerHTML = '';
+            
+            // Build parent-child map
+            const childrenMap = new Map();
+            const rootPrompts = [];
+            
+            this.filteredPrompts.forEach(prompt => {
+                if (prompt.parent_id) {
+                    if (!childrenMap.has(prompt.parent_id)) {
+                        childrenMap.set(prompt.parent_id, []);
+                    }
+                    childrenMap.get(prompt.parent_id).push(prompt);
+                } else {
+                    rootPrompts.push(prompt);
+                }
+            });
+            
+            // Render tree recursively
+            const renderNode = (prompt, level = 0) => {
+                const item = this.createVersionItem(prompt, level);
+                container.appendChild(item);
+                
+                const children = childrenMap.get(prompt.id) || [];
+                children.forEach(child => renderNode(child, level + 1));
+            };
+            
+            rootPrompts.forEach(prompt => renderNode(prompt));
+        },
+        
+        /**
+         * Create a version list item element
+         * @param {Object} prompt - Prompt data
+         * @param {number} treeLevel - Tree level for indentation
+         * @returns {HTMLElement}
+         */
+        createVersionItem(prompt, treeLevel = 0) {
+            const item = document.createElement('div');
+            item.className = 'version-item';
+            item.dataset.id = prompt.id;
+            
+            if (prompt.id === this.currentPromptId) {
+                item.classList.add('selected', 'current');
+            }
+            
+            // Tree indicator
+            let treeIndicator = '';
+            if (treeLevel > 0) {
+                treeIndicator = `
+                    <div class="version-tree-indicator">
+                        ${'<span class="version-tree-line"></span>'.repeat(treeLevel - 1)}
+                        <span class="version-tree-branch"></span>
+                    </div>
+                `;
+            }
+            
+            // Tags
+            const tagsHtml = (prompt.tags || []).slice(0, 3).map(tag => 
+                `<span class="version-tag">${Utils.escapeHtml(tag)}</span>`
+            ).join('');
+            
+            item.innerHTML = `
+                ${treeIndicator}
+                <div class="version-content">
+                    <div class="version-name">${Utils.escapeHtml(prompt.name)}</div>
+                    <div class="version-meta">
+                        ${Utils.formatRelativeTime(prompt.created_at)}
+                        ${prompt.parent_id ? '• forked' : ''}
+                    </div>
+                    <div class="version-tags">${tagsHtml}</div>
+                </div>
+            `;
+            
+            item.addEventListener('click', () => {
+                this.loadPrompt(prompt.id);
+            });
+            
+            return item;
+        },
+        
+        /**
+         * Update prompt selector dropdown
+         */
+        updatePromptSelector() {
+            const selector = document.getElementById('prompt-selector');
+            if (!selector) return;
+            
+            const currentValue = selector.value;
+            
+            selector.innerHTML = '<option value="">Select a prompt...</option>';
+            
+            this.prompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt.id;
+                option.textContent = prompt.name;
+                selector.appendChild(option);
+            });
+            
+            if (currentValue) {
+                selector.value = currentValue;
+            }
+        },
+        
+        /**
+         * Update prompt selector value
+         * @param {string} promptId - Selected prompt ID
+         */
+        updatePromptSelectorValue(promptId) {
+            const selector = document.getElementById('prompt-selector');
+            if (selector) {
+                selector.value = promptId;
+            }
+        },
+        
+        /**
+         * Highlight selected version in list
+         * @param {string} promptId - Selected prompt ID
+         */
+        highlightSelectedVersion(promptId) {
+            document.querySelectorAll('.version-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.id === promptId);
+                item.classList.toggle('current', item.dataset.id === promptId);
+            });
+        },
+        
+        /**
+         * Update prompt info bar
+         * @param {Object} prompt - Prompt data
+         */
+        updatePromptInfo(prompt) {
+            const infoBar = document.getElementById('prompt-info-bar');
+            const idDisplay = document.getElementById('prompt-id-display');
+            const createdDisplay = document.getElementById('prompt-created-display');
+            const parentDisplay = document.getElementById('prompt-parent-display');
+            const tagsDisplay = document.getElementById('prompt-tags-display');
+            
+            if (infoBar) infoBar.style.display = 'flex';
+            
+            if (idDisplay) {
+                idDisplay.textContent = prompt.id.substring(0, 8) + '...';
+                idDisplay.title = prompt.id;
+            }
+            
+            if (createdDisplay) {
+                createdDisplay.textContent = Utils.formatDate(prompt.created_at);
+            }
+            
+            if (parentDisplay) {
+                if (prompt.parent_id) {
+                    parentDisplay.innerHTML = `<span class="info-value clickable" data-parent="${prompt.parent_id}">${prompt.parent_id.substring(0, 8)}...</span>`;
+                    parentDisplay.querySelector('.clickable').addEventListener('click', () => {
+                        this.loadPrompt(prompt.parent_id);
+                    });
+                } else {
+                    parentDisplay.textContent = 'None (root)';
+                }
+            }
+            
+            if (tagsDisplay) {
+                const tagsHtml = (prompt.tags || []).map(tag => 
+                    `<span class="tag">${Utils.escapeHtml(tag)}</span>`
+                ).join('');
+                tagsDisplay.innerHTML = tagsHtml || '<span class="text-muted">No tags</span>';
+            }
+        },
+        
+        /**
+         * Show save version modal
+         */
+        showSaveVersionModal() {
+            // Validate current content first
+            const content = JSONEditorManager.getPromptValue();
+            if (!content) {
+                Utils.showToast('Please fix JSON errors before saving', 'error');
+                return;
+            }
+            
+            const modal = document.getElementById('save-version-modal');
+            const nameInput = document.getElementById('new-version-name');
+            const descInput = document.getElementById('new-version-description');
+            const tagsInput = document.getElementById('new-version-tags');
+            const forkCheck = document.getElementById('fork-from-current');
+            
+            // Pre-fill with current prompt data if available
+            if (this.currentPromptId && State.get('currentPrompt')) {
+                const current = State.get('currentPrompt');
+                nameInput.value = current.name || '';
+                descInput.value = current.description || '';
+                tagsInput.value = (current.tags || []).join(', ');
+            } else {
+                nameInput.value = '';
+                descInput.value = '';
+                tagsInput.value = '';
+            }
+            
+            forkCheck.checked = !!this.currentPromptId;
+            
+            modal.style.display = 'flex';
+            nameInput.focus();
+        },
+        
+        /**
+         * Save new version
+         */
+        async saveNewVersion() {
+            const nameInput = document.getElementById('new-version-name');
+            const descInput = document.getElementById('new-version-description');
+            const tagsInput = document.getElementById('new-version-tags');
+            const forkCheck = document.getElementById('fork-from-current');
+            const modal = document.getElementById('save-version-modal');
+            
+            const name = nameInput.value.trim();
+            if (!name) {
+                Utils.showToast('Please enter a name', 'error');
+                return;
+            }
+            
+            // Get editor content
+            const content = JSONEditorManager.getPromptValue();
+            if (!content) {
+                Utils.showToast('Invalid JSON in editor', 'error');
+                return;
+            }
+            
+            // Build request
+            const request = {
+                name: name,
+                description: descInput.value.trim() || undefined,
+                blocks: content.blocks || [],
+                tags: tagsInput.value.split(',').map(t => t.trim()).filter(t => t),
+                parent_id: forkCheck.checked ? this.currentPromptId : undefined
+            };
+            
+            try {
+                Utils.showLoading();
+                
+                const response = await API.post('/prompts', request);
+                
+                modal.style.display = 'none';
+                Utils.showToast('Version saved successfully', 'success');
+                
+                // Reload prompts and select the new one
+                await this.loadPrompts();
+                this.loadPrompt(response.id);
+                
+            } catch (error) {
+                Utils.handleError(error, { context: 'Saving version' });
+            } finally {
+                Utils.hideLoading();
+            }
+        },
+        
+        /**
+         * Fork current prompt
+         */
+        forkPrompt() {
+            if (!this.currentPromptId) {
+                Utils.showToast('Please select a prompt to fork', 'warning');
+                return;
+            }
+            
+            this.showSaveVersionModal();
+            const forkCheck = document.getElementById('fork-from-current');
+            if (forkCheck) forkCheck.checked = true;
+        },
+        
+        /**
+         * Delete current prompt
+         */
+        async deletePrompt() {
+            if (!this.currentPromptId) {
+                Utils.showToast('Please select a prompt to delete', 'warning');
+                return;
+            }
+            
+            const prompt = State.get('currentPrompt');
+            if (!confirm(`Are you sure you want to delete "${prompt.name}"?\n\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                Utils.showLoading();
+                
+                await API.delete(`/prompts/${this.currentPromptId}`);
+                
+                Utils.showToast('Prompt deleted successfully', 'success');
+                
+                // Clear current selection
+                this.currentPromptId = null;
+                State.set('currentPrompt', null);
+                
+                // Reset editor
+                JSONEditorManager.setPromptValue({
+                    name: "My Prompt",
+                    description: "Example prompt for extraction",
+                    blocks: [
+                        { type: "system", content: "You are a helpful assistant..." },
+                        { type: "user", content: "Extract the following fields..." }
+                    ],
+                    tags: ["extraction"]
+                });
+                
+                // Hide info bar
+                const infoBar = document.getElementById('prompt-info-bar');
+                if (infoBar) infoBar.style.display = 'none';
+                
+                // Reload list
+                await this.loadPrompts();
+                
+            } catch (error) {
+                Utils.handleError(error, { context: 'Deleting prompt' });
+            } finally {
+                Utils.hideLoading();
+            }
+        },
+        
+        /**
+         * Create new prompt
+         */
+        newPrompt() {
+            this.currentPromptId = null;
+            State.set('currentPrompt', null);
+            
+            // Reset editor to example
+            JSONEditorManager.setPromptValue({
+                name: "My Prompt",
+                description: "Example prompt for extraction",
+                blocks: [
+                    { type: "system", content: "You are a helpful assistant that extracts information from documents." },
+                    { type: "user", content: "Extract the following fields from the document:..." }
+                ],
+                tags: ["extraction"]
+            });
+            
+            // Clear selection
+            document.querySelectorAll('.version-item').forEach(item => {
+                item.classList.remove('selected', 'current');
+            });
+            
+            // Reset selector
+            const selector = document.getElementById('prompt-selector');
+            if (selector) selector.value = '';
+            
+            // Hide info bar
+            const infoBar = document.getElementById('prompt-info-bar');
+            if (infoBar) infoBar.style.display = 'none';
+            
+            Utils.updateStatus('New prompt - edit and save as new version');
+        },
+        
+        /**
+         * Show diff modal
+         */
+        showDiffModal() {
+            if (this.prompts.length < 2) {
+                Utils.showToast('Need at least 2 prompts to compare', 'warning');
+                return;
+            }
+            
+            const modal = document.getElementById('diff-modal');
+            const selectA = document.getElementById('diff-version-a');
+            const selectB = document.getElementById('diff-version-b');
+            
+            // Populate selectors
+            const options = this.prompts.map(p => 
+                `<option value="${p.id}">${Utils.escapeHtml(p.name)} (${p.id.substring(0, 8)})</option>`
+            ).join('');
+            
+            selectA.innerHTML = options;
+            selectB.innerHTML = options;
+            
+            // Pre-select current prompt and previous one
+            if (this.currentPromptId) {
+                selectA.value = this.currentPromptId;
+                const currentIndex = this.prompts.findIndex(p => p.id === this.currentPromptId);
+                if (currentIndex > 0) {
+                    selectB.value = this.prompts[currentIndex - 1].id;
+                }
+            }
+            
+            modal.style.display = 'flex';
+        },
+        
+        /**
+         * Load and display diff
+         */
+        async loadDiff() {
+            const selectA = document.getElementById('diff-version-a');
+            const selectB = document.getElementById('diff-version-b');
+            const resultsDiv = document.getElementById('diff-results');
+            
+            const idA = selectA.value;
+            const idB = selectB.value;
+            
+            if (!idA || !idB) {
+                Utils.showToast('Please select two versions to compare', 'warning');
+                return;
+            }
+            
+            if (idA === idB) {
+                Utils.showToast('Please select different versions', 'warning');
+                return;
+            }
+            
+            try {
+                Utils.showLoading();
+                
+                const diff = await API.get(`/prompts/${idA}/diff/${idB}`);
+                this.renderDiff(diff, resultsDiv);
+                
+            } catch (error) {
+                Utils.handleError(error, { context: 'Loading diff' });
+            } finally {
+                Utils.hideLoading();
+            }
+        },
+        
+        /**
+         * Render diff results
+         * @param {Object} diff - Diff data
+         * @param {HTMLElement} container - Container element
+         */
+        renderDiff(diff, container) {
+            let html = '';
+            
+            // Name change
+            if (diff.name_changed) {
+                html += `
+                    <div class="diff-section">
+                        <div class="diff-section-title">Name Changed</div>
+                        <div class="diff-block modified">
+                            <div class="diff-block-content">Name was modified between versions</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Description change
+            if (diff.description_changed) {
+                html += `
+                    <div class="diff-section">
+                        <div class="diff-section-title">Description Changed</div>
+                        <div class="diff-block modified">
+                            <div class="diff-block-content">Description was modified between versions</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Tags change
+            if (diff.tags_changed) {
+                html += `
+                    <div class="diff-section">
+                        <div class="diff-section-title">Tags Changed</div>
+                        <div class="diff-block modified">
+                            <div class="diff-block-content">Tags were modified between versions</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Block differences
+            if (diff.blocks_diff && diff.blocks_diff.length > 0) {
+                html += `
+                    <div class="diff-section">
+                        <div class="diff-section-title">Block Changes (${diff.blocks_diff.length})</div>
+                `;
+                
+                diff.blocks_diff.forEach(blockDiff => {
+                    const statusClass = blockDiff.status;
+                    const statusLabel = blockDiff.status.charAt(0).toUpperCase() + blockDiff.status.slice(1);
+                    
+                    html += `
+                        <div class="diff-block ${statusClass}">
+                            <div class="diff-block-header">Block ${blockDiff.index + 1} - ${statusLabel}</div>
+                    `;
+                    
+                    if (blockDiff.status === 'modified') {
+                        html += `
+                            <div class="diff-block-comparison">
+                                <div class="diff-old">
+                                    <strong>Old:</strong><br>
+                                    <pre>${Utils.escapeHtml(JSON.stringify(blockDiff.old_block, null, 2))}</pre>
+                                </div>
+                                <div class="diff-new">
+                                    <strong>New:</strong><br>
+                                    <pre>${Utils.escapeHtml(JSON.stringify(blockDiff.new_block, null, 2))}</pre>
+                                </div>
+                            </div>
+                        `;
+                    } else if (blockDiff.status === 'added') {
+                        html += `
+                            <div class="diff-block-content">
+                                <pre>${Utils.escapeHtml(JSON.stringify(blockDiff.new_block, null, 2))}</pre>
+                            </div>
+                        `;
+                    } else if (blockDiff.status === 'removed') {
+                        html += `
+                            <div class="diff-block-content">
+                                <pre>${Utils.escapeHtml(JSON.stringify(blockDiff.old_block, null, 2))}</pre>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+            }
+            
+            if (!html) {
+                html = '<div class="empty-state">No differences found between versions</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+    };
+
+    // ============================================
     // INITIALIZATION
     // ============================================
     function init() {
         console.log('🚀 Prompt Governor initialized');
-        
+
         // Restore state from localStorage
         State.restore();
-        
+
         // Initialize tabs
         Tabs.init();
-        
+
         // Initialize JSON Editor
         JSONEditorManager.init();
-        
+
+        // Initialize Prompt Manager
+        PromptManager.init();
+
         // Initialize Config Manager
         ConfigManager.init();
-        
+
+        // Initialize Run Manager
+        RunManager.init();
+
         // Start API status monitoring
         APIStatus.start();
-        
+
         // Load initial data
         DataLoader.loadInitialData();
-        
+
         // Set up keyboard shortcuts
         setupKeyboardShortcuts();
-        
+
         Utils.updateStatus('Ready');
     }
     
@@ -1645,6 +3318,18 @@
             if (e.key === 'Escape') {
                 const toast = document.querySelector('.toast-notification');
                 if (toast) Utils.hideToast(toast);
+                
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.style.display = 'none';
+                });
+            }
+            
+            // Ctrl+S to save (prevent browser save)
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                if (State.get('currentTab') === 'prompts') {
+                    PromptManager.showSaveVersionModal();
+                }
             }
         });
     }
@@ -1670,7 +3355,10 @@
         APIStatus,
         DataLoader,
         JSONEditorManager,
+        PromptManager,
         ConfigManager,
+        RunManager,
+        DiffViewer,
         CONFIG,
 
         // Utility shortcuts

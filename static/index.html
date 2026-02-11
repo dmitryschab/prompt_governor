@@ -50,36 +50,80 @@
                 <p class="tab-description">Create, edit, and manage prompt versions for extraction tasks.</p>
             </div>
             <div class="tab-body">
+                <!-- Search and Filter Bar -->
+                <div class="prompt-filters">
+                    <div class="filter-group search-group">
+                        <input type="text" id="prompt-search" class="search-input" placeholder="Search prompts by name or description...">
+                    </div>
+                    <div class="filter-group tag-group">
+                        <select id="tag-filter" class="selector">
+                            <option value="">All tags</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-small btn-outline" id="clear-filters-btn">Clear Filters</button>
+                </div>
+
                 <div class="prompt-container">
+                    <!-- Version History Sidebar -->
                     <aside class="prompt-sidebar">
                         <div class="sidebar-header">
-                            <h3>Versions</h3>
+                            <h3>Version History</h3>
                             <button class="btn btn-small" id="new-prompt-btn">+ New</button>
+                        </div>
+                        <div class="sidebar-toolbar">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="show-tree-view">
+                                <span>Show tree view</span>
+                            </label>
                         </div>
                         <div class="prompt-list" id="prompt-list">
                             <!-- Prompt list will be populated by JavaScript -->
                             <div class="empty-state">Loading prompts...</div>
                         </div>
                     </aside>
+
+                    <!-- Editor Area -->
                     <div class="prompt-editor-area">
                         <div class="editor-toolbar">
-                            <select id="prompt-selector" class="selector">
-                                <option value="">Select a prompt...</option>
-                            </select>
+                            <div class="toolbar-left">
+                                <select id="prompt-selector" class="selector prompt-selector">
+                                    <option value="">Select a prompt...</option>
+                                </select>
+                                <button class="btn btn-small btn-outline" id="compare-btn" title="Compare versions">Compare</button>
+                            </div>
                             <div class="editor-actions">
-                                <button class="btn btn-secondary" id="save-prompt-btn">Save as New Version</button>
-                                <button class="btn btn-danger" id="delete-prompt-btn">Delete</button>
+                                <button class="btn btn-secondary" id="save-version-btn">Save as New Version</button>
+                                <button class="btn btn-secondary" id="fork-prompt-btn">Fork</button>
+                                <button class="btn btn-danger btn-small" id="delete-prompt-btn">Delete</button>
                             </div>
                         </div>
-                        <div class="editor-container">
-                            <div id="prompt-editor" class="json-editor" placeholder="{
-  &quot;name&quot;: &quot;My Prompt&quot;,
-  &quot;blocks&quot;: [...]
-}"></div>
+
+                        <!-- Prompt Info Bar -->
+                        <div class="prompt-info-bar" id="prompt-info-bar" style="display: none;">
+                            <div class="info-item">
+                                <span class="info-label">ID:</span>
+                                <span class="info-value" id="prompt-id-display"></span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Created:</span>
+                                <span class="info-value" id="prompt-created-display"></span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Parent:</span>
+                                <span class="info-value" id="prompt-parent-display"></span>
+                            </div>
+                            <div class="info-item tags-display" id="prompt-tags-display"></div>
                         </div>
-                        <div class="editor-meta">
-                            <span id="prompt-id"></span>
-                            <span id="prompt-created"></span>
+
+                        <!-- JSON Editor Container -->
+                        <div class="editor-container">
+                            <div id="prompt-editor-container"></div>
+                        </div>
+
+                        <!-- Validation Status -->
+                        <div class="validation-status" id="validation-status">
+                            <span class="validation-indicator" id="validation-indicator"></span>
+                            <span class="validation-message" id="validation-message">Ready to edit</span>
                         </div>
                     </div>
                 </div>
@@ -169,30 +213,38 @@
                     <!-- Run Configuration Panel -->
                     <div class="run-config-panel">
                         <h3>Run Configuration</h3>
-                        <div class="run-selectors">
+                        <form id="run-form" class="run-selectors">
                             <div class="form-group">
-                                <label for="run-prompt-select">Prompt</label>
-                                <select id="run-prompt-select" class="selector">
+                                <label for="run-prompt-select">Prompt <span class="required">*</span></label>
+                                <select id="run-prompt-select" class="selector" required>
                                     <option value="">Select prompt...</option>
                                 </select>
+                                <span class="field-error" id="prompt-error"></span>
                             </div>
                             <div class="form-group">
-                                <label for="run-config-select">Configuration</label>
-                                <select id="run-config-select" class="selector">
+                                <label for="run-config-select">Configuration <span class="required">*</span></label>
+                                <select id="run-config-select" class="selector" required>
                                     <option value="">Select config...</option>
                                 </select>
+                                <span class="field-error" id="config-error"></span>
                             </div>
                             <div class="form-group">
-                                <label for="run-document-select">Document</label>
-                                <select id="run-document-select" class="selector">
+                                <label for="run-document-select">Document <span class="required">*</span></label>
+                                <select id="run-document-select" class="selector" required>
                                     <option value="">Select document...</option>
                                 </select>
+                                <span class="field-error" id="document-error"></span>
                             </div>
-                        </div>
+                        </form>
                         <div class="run-actions">
-                            <button class="btn btn-primary btn-large" id="run-extraction-btn">
+                            <button class="btn btn-primary btn-large" id="run-extraction-btn" type="submit">
                                 <span class="btn-icon">▶️</span>
-                                Run Extraction
+                                <span class="btn-text">Run Extraction</span>
+                                <span class="btn-spinner" style="display: none;"></span>
+                            </button>
+                            <button class="btn btn-secondary" id="reset-run-btn" type="button">
+                                <span class="btn-icon">↺</span>
+                                Reset
                             </button>
                         </div>
                     </div>
@@ -210,20 +262,19 @@
                         <div class="results-header">
                             <h3>Results</h3>
                             <div class="results-actions">
-                                <button class="btn btn-small" id="compare-runs-btn">Compare</button>
-                                <button class="btn btn-small btn-secondary" id="export-results-btn">Export</button>
+                                <button class="btn btn-small btn-secondary" id="export-results-btn">Export JSON</button>
                             </div>
                         </div>
                         <div class="metrics-display">
-                            <div class="metric-card primary">
+                            <div class="metric-card primary" id="metric-recall-card">
                                 <span class="metric-label">Recall</span>
                                 <span class="metric-value" id="metric-recall">--%</span>
                             </div>
-                            <div class="metric-card">
+                            <div class="metric-card" id="metric-precision-card">
                                 <span class="metric-label">Precision</span>
                                 <span class="metric-value" id="metric-precision">--%</span>
                             </div>
-                            <div class="metric-card">
+                            <div class="metric-card" id="metric-f1-card">
                                 <span class="metric-label">F1 Score</span>
                                 <span class="metric-value" id="metric-f1">--%</span>
                             </div>
@@ -238,32 +289,109 @@
                         </div>
                         <div class="results-details">
                             <div class="details-section">
-                                <h4>Missing Fields</h4>
+                                <h4>Missing Fields <span class="badge" id="missing-fields-count">0</span></h4>
                                 <ul class="missing-fields-list" id="missing-fields-list">
-                                    <li class="empty">No results yet</li>
+                                    <li class="empty">No missing fields</li>
                                 </ul>
                             </div>
                             <div class="details-section">
                                 <h4>Output vs Ground Truth</h4>
                                 <div class="diff-viewer" id="diff-viewer">
-                                    <div class="empty-state">Run an extraction to see results</div>
+                                    <div class="diff-legend">
+                                        <span class="legend-item added"><span class="dot"></span> Added</span>
+                                        <span class="legend-item removed"><span class="dot"></span> Removed</span>
+                                        <span class="legend-item modified"><span class="dot"></span> Modified</span>
+                                    </div>
+                                    <div class="diff-content" id="diff-content">
+                                        <div class="empty-state">Run an extraction to see results</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Run History -->
-                    <div class="run-history">
-                        <h3>Run History</h3>
+                    <div class="run-history" id="run-history-section">
+                        <div class="history-header">
+                            <h3>Run History</h3>
+                            <button class="btn btn-small btn-secondary" id="refresh-history-btn" title="Refresh history">
+                                ↻ Refresh
+                            </button>
+                        </div>
                         <div class="history-list" id="history-list">
                             <!-- History items will be populated by JavaScript -->
-                            <div class="empty-state">No runs yet</div>
+                            <div class="empty-state">Loading run history...</div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
     </main>
+
+    <!-- Diff Viewer Modal -->
+    <div class="modal" id="diff-modal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Compare Versions</h3>
+                <button class="modal-close" id="close-diff-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="diff-selector-row">
+                    <div class="diff-select-group">
+                        <label>Version A</label>
+                        <select id="diff-version-a" class="selector"></select>
+                    </div>
+                    <span class="diff-arrow">→</span>
+                    <div class="diff-select-group">
+                        <label>Version B</label>
+                        <select id="diff-version-b" class="selector"></select>
+                    </div>
+                    <button class="btn btn-primary" id="load-diff-btn">Compare</button>
+                </div>
+                <div class="diff-results" id="diff-results">
+                    <div class="empty-state">Select two versions to compare</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Version Modal -->
+    <div class="modal" id="save-version-modal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Save New Version</h3>
+                <button class="modal-close" id="close-save-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="save-version-form">
+                    <div class="form-group">
+                        <label for="new-version-name">Name <span class="required">*</span></label>
+                        <input type="text" id="new-version-name" required placeholder="e.g., Contract Extractor v2">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-version-description">Description</label>
+                        <textarea id="new-version-description" rows="3" placeholder="Brief description of this version..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-version-tags">Tags (comma-separated)</label>
+                        <input type="text" id="new-version-tags" placeholder="extraction, contracts, v2">
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="fork-from-current" checked>
+                            <span>Fork from current version</span>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Version</button>
+                        <button type="button" class="btn btn-secondary" id="cancel-save-btn">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer with status area -->
     <footer class="app-footer">
@@ -281,6 +409,7 @@
     </footer>
 
     <!-- Scripts -->
+    <script src="js/components/json-editor.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
