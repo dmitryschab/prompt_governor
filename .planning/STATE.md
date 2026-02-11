@@ -2,15 +2,15 @@
 
 ## Current Position
 
-Phase: B1 - Storage Service ✓ COMPLETE
-Plan: B1 (Plan 1 of Phase Group B - Backend Core)
+Phase: C3 - Documents API ✓ COMPLETE
+Plan: C3 (Plan 3 of Phase Group C - Backend API)
 Status: Completed 2026-02-11
-Last completed: Created mvp/services/storage.py with file-based JSON utilities
+Last completed: Created mvp/api/documents.py with FastAPI document listing endpoints
 
 ## Progress
 
 Total Phases: 10 (A-J)
-Completed: 4 (A1, A3, A4, B1, D1)
+Completed: 6 (A1, A3, A4, B1, C3, D1)
 In Progress: 0
 
 Phase A: Infrastructure Bootstrap
@@ -23,7 +23,7 @@ Phase A: Infrastructure Bootstrap
 Phase Groups:
 - [~] Phase Group A: Infrastructure (A1-A5) - A1, A3, A4 COMPLETE
 - [~] Phase Group B: Backend Core (B1-B4) - B1 COMPLETE
-- [ ] Phase Group C: Backend API (C1-C5)
+- [~] Phase Group C: Backend API (C1-C5) - C3 COMPLETE
 - [~] Phase Group D: Frontend Core (D1-D4) - D1 COMPLETE
 - [ ] Phase Group E: Frontend Tabs (E1-E3)
 - [ ] Phase Group F: Integration (F1-F2)
@@ -51,9 +51,9 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-02-11 15:15:00Z
-Stopped at: Completed Phase B1 - Storage Service
-Resume file: .planning/phases/B-backend/B1-SUMMARY.md
+Last session: 2026-02-11 15:20:00Z
+Stopped at: Completed Phase C3 - Documents API
+Resume file: .planning/phases/C-backend-api/C3-SUMMARY.md
 
 ## Completed Artifacts
 
@@ -68,3 +68,7 @@ Resume file: .planning/phases/B-backend/B1-SUMMARY.md
   - `js/app.js` - Tab switching and API client (D1)
 - Directory structure: `data/`, `documents/`, `ground_truth/`, `cache/` (A3)
 - `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/services/storage.py` - File-based JSON storage utilities (B1)
+- `/Users/dmitrijssabelniks/Documents/projects/prompt_governor/mvp/api/documents.py` - FastAPI documents endpoints (C3)
+  - `GET /api/documents` - List documents with filtering
+  - `GET /api/documents/{name}` - Get document metadata
+  - `HEAD /api/documents/{name}` - Check document existence
