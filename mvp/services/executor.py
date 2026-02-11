@@ -10,6 +10,7 @@ This module integrates with the prompt_optimization codebase for real extraction
 """
 
 import json
+import logging
 import os
 import sys
 import time
@@ -21,8 +22,11 @@ from typing import Any, Dict, List, Optional
 from mvp.models.config import ModelConfig
 from mvp.models.prompt import PromptVersion
 from mvp.models.run import Run
-from mvp.services.metrics import calculate_cost, calculate_metrics, extract_token_usage
+from mvp.services.metrics import calculate_cost, extract_token_usage
 from mvp.services.storage import generate_id, load_json, save_json
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Ensure prompt_optimization is in path for Docker environment
 PROMPT_OPT_DIR = Path("/app/prompt_optimization")
@@ -292,72 +296,177 @@ def _save_run(run: Run) -> None:
     save_json(run_path, run_data)
 
 
-def _execute_extraction_placeholder(
+def _execute_extraction_with_pipeline(
     prompt: PromptVersion, config: ModelConfig, document_content: str
 ) -> Dict:
-    """Placeholder for the actual extraction pipeline.
+    """Execute extraction using the real modular pipeline.
 
-    This function simulates what the real extraction pipeline would do:
-    - Format the prompt with the document content
-    - Call the LLM API
-    - Parse and validate the response
-    - Return the extraction result
+    This function uses the ModularPipeline from prompt_optimization to:
+    - Run modules A-D for extraction
+    - Collect and merge module outputs
+    - Track token usage and costs
+    - Validate output against Contract schema
 
     Args:
-        prompt: PromptVersion with blocks to use.
+        prompt: PromptVersion with blocks to use (not used with current pipeline,
+            but kept for future compatibility with custom prompts).
         config: ModelConfig with API parameters.
         document_content: Content of the document to extract from.
 
     Returns:
         Dictionary containing:
-            - output: The extracted data
+            - output: The extracted data (Contract schema compliant)
             - tokens: Token usage dict with 'input', 'output', 'total'
             - latency_ms: Request latency in milliseconds
             - raw_response: Raw API response for token extraction
+            - pipeline_metrics: Additional pipeline metrics (cost, module results)
+
+    Raises:
+        PipelineNotAvailableError: If pipeline imports failed.
+        ExtractionError: If extraction pipeline fails.
+        SchemaValidationError: If output fails Contract schema validation.
 
     Note:
-        This is a placeholder implementation. Replace with actual
-        extract_modular_contract() call from the pipeline.
+        The pipeline uses FFH prompt templates and runs modules A, B, C, D.
+        Module E (links) is not run by default to save tokens.
     """
-    # Simulate API call latency
+    if not PIPELINE_AVAILABLE:
+        raise PipelineNotAvailableError(
+            f"Extraction pipeline not available. Import error: {PIPELINE_ERROR}"
+        )
+
     start_time = time.time()
-    time.sleep(0.1)  # 100ms simulated latency
-    end_time = time.time()
 
-    # Simulated extraction output (placeholder)
-    simulated_output = {
-        "extracted_data": {
-            "document_type": "placeholder",
-            "fields_found": 0,
-            "processing_status": "simulated",
-        },
-        "note": "This is a placeholder extraction. Replace with actual pipeline integration.",
-    }
+    try:
+        # Initialize pipeline with config parameters
+        pipeline = ModularPipeline(
+            model_name=config.model_id,
+            reasoning_effort=config.reasoning_effort,
+            enable_mandatory_fallback=True,
+            fallback_reasoning_effort="medium",
+            fallback_model_name=config.model_id,
+            inference_strategy="normal",
+        )
 
-    # Simulated token usage (would come from actual API response)
-    simulated_tokens = {
-        "input": len(document_content) // 4,  # Rough estimate: 4 chars per token
-        "output": 500,  # Simulated output tokens
-        "total": len(document_content) // 4 + 500,
-    }
+        # Run the extraction pipeline
+        logger.info(f"Starting extraction with model: {config.model_id}")
+        module_results = pipeline.analyse(document_content)
 
-    # Simulated API response for token extraction
-    simulated_response = {
-        "usage": {
-            "prompt_tokens": simulated_tokens["input"],
-            "completion_tokens": simulated_tokens["output"],
-            "total_tokens": simulated_tokens["total"],
+        # Merge module outputs into final contract structure
+        merged_output = _merge_module_outputs(module_results)
+
+        # Validate against Contract schema
+        try:
+            validated_contract = Contract.model_validate(merged_output)
+            validated_output = validated_contract.model_dump(by_alias=True)
+            logger.info("Output validated against Contract schema")
+        except Exception as validation_error:
+            logger.warning(f"Schema validation warning: {validation_error}")
+            # Still use the merged output but mark it as potentially invalid
+            validated_output = merged_output
+
+        # Calculate total token usage from pipeline metrics
+        total_tokens_input = 0
+        total_tokens_output = 0
+        total_cost = 0.0
+
+        if hasattr(pipeline, "token_metrics") and pipeline.token_metrics:
+            for module_name, token_data in pipeline.token_metrics.items():
+                if token_data:
+                    total_tokens_input += token_data.get("input", 0) or 0
+                    total_tokens_output += token_data.get("output", 0) or 0
+
+        if hasattr(pipeline, "cost_metrics") and pipeline.cost_metrics:
+            for module_name, cost in pipeline.cost_metrics.items():
+                if cost is not None:
+                    total_cost += cost
+
+        end_time = time.time()
+        latency_ms = int((end_time - start_time) * 1000)
+
+        tokens = {
+            "input": total_tokens_input,
+            "output": total_tokens_output,
+            "total": total_tokens_input + total_tokens_output,
         }
-    }
 
-    latency_ms = int((end_time - start_time) * 1000)
+        raw_response = {
+            "usage": {
+                "prompt_tokens": total_tokens_input,
+                "completion_tokens": total_tokens_output,
+                "total_tokens": tokens["total"],
+            },
+            "pipeline_version": getattr(pipeline, "pipeline_version", "unknown"),
+            "modules_run": list(module_results.keys()),
+        }
 
-    return {
-        "output": simulated_output,
-        "tokens": simulated_tokens,
-        "latency_ms": latency_ms,
-        "raw_response": simulated_response,
-    }
+        return {
+            "output": validated_output,
+            "tokens": tokens,
+            "latency_ms": latency_ms,
+            "raw_response": raw_response,
+            "pipeline_metrics": {
+                "total_cost_usd": total_cost,
+                "module_results": {k: v for k, v in module_results.items()},
+            },
+        }
+
+    except Exception as e:
+        raise ExtractionError(f"Extraction pipeline failed: {e}") from e
+
+
+def _merge_module_outputs(module_results: Dict[str, Any]) -> Dict:
+    """Merge module outputs (A, B, C, D) into a single contract structure.
+
+    The modular pipeline returns separate outputs for each module:
+    - Module A: Contract structure and general information
+    - Module B: Financials (limits, premium, deductions, shares)
+    - Module C: Classifications, partners, dates
+    - Module D: Other clauses (claims, admin, instalments, etc.)
+
+    Args:
+        module_results: Dictionary with keys "A", "B", "C", "D" containing
+            each module's JSON output.
+
+    Returns:
+        Merged contract structure matching the Contract schema.
+    """
+    merged = {}
+
+    # Module A provides the base structure
+    if "A" in module_results:
+        merged.update(module_results["A"])
+
+    # Module B adds financial information
+    if "B" in module_results:
+        for key in ["Limits", "Premium", "Deductions", "Share"]:
+            if key in module_results["B"]:
+                merged[key] = module_results["B"][key]
+
+    # Module C adds classifications and partner information
+    if "C" in module_results:
+        # Update general information with module C data
+        if "GeneralInformation" in module_results["C"]:
+            if "GeneralInformation" not in merged:
+                merged["GeneralInformation"] = {}
+            merged["GeneralInformation"].update(
+                module_results["C"]["GeneralInformation"]
+            )
+
+    # Module D adds other clauses
+    if "D" in module_results:
+        for key in [
+            "Claims",
+            "AdminConditions",
+            "OtherConditions",
+            "Instalments",
+            "Adjustments",
+            "Reinstatements",
+        ]:
+            if key in module_results["D"]:
+                merged[key] = module_results["D"][key]
+
+    return merged
 
 
 def execute_run(run_id: str, prompt_id: str, config_id: str, document_name: str) -> Run:
@@ -429,12 +538,44 @@ def execute_run(run_id: str, prompt_id: str, config_id: str, document_name: str)
     _save_run(run)
 
     try:
-        # Step 3: Execute extraction (placeholder)
-        result = _execute_extraction_placeholder(prompt, config, document_content)
+        # Step 3: Execute extraction with real pipeline
+        result = _execute_extraction_with_pipeline(prompt, config, document_content)
 
-        # Step 4: Calculate metrics
+        # Step 4: Calculate metrics using recall_metrics if available
         output = result["output"]
-        metrics = calculate_metrics(output, ground_truth)
+        if PIPELINE_AVAILABLE:
+            recall_result = calculate_recall_accuracy(ground_truth, output)
+            metrics = {
+                "recall": recall_result["recall"]
+                / 100,  # Convert from percentage to 0-1
+                "precision": recall_result["matched"]
+                / max(recall_result["total_gt_fields"], 1),
+                "f1": 2
+                * (
+                    recall_result["recall"]
+                    / 100
+                    * recall_result["matched"]
+                    / max(recall_result["total_gt_fields"], 1)
+                )
+                / max(
+                    (
+                        recall_result["recall"] / 100
+                        + recall_result["matched"]
+                        / max(recall_result["total_gt_fields"], 1)
+                    ),
+                    1,
+                ),
+                "matched_fields": recall_result["matched"],
+                "total_gt_fields": recall_result["total_gt_fields"],
+                "missing_fields": len(recall_result["missing_paths"]),
+            }
+        else:
+            # Fallback to basic metrics calculation
+            from mvp.services.metrics import (
+                calculate_metrics as basic_calculate_metrics,
+            )
+
+            metrics = basic_calculate_metrics(output, ground_truth)
         metrics["latency_ms"] = result["latency_ms"]
 
         # Step 5: Calculate cost

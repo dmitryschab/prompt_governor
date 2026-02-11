@@ -1117,7 +1117,7 @@ class TestRunCompare:
         assert response.status_code == 404
 
     def test_compare_runs_metric_differences(
-        self, client, sample_prompt_id, sample_config_id
+        self, client, sample_prompt_id, sample_config_id, test_data_dir
     ):
         """Test that comparison shows metric differences."""
         # Create two runs with different metrics
@@ -1142,28 +1142,44 @@ class TestRunCompare:
             )
             run2_id = response2.json()["run_id"]
 
-        # Manually set metrics for both runs
-        from mvp.services.storage import load_json, save_json, get_collection_path
+        # Manually set metrics for both runs using test_data_dir
+        import json as json_module
 
-        run1_file = get_collection_path("runs") / f"{run1_id}.json"
-        run1_data = load_json(run1_file)
+        run1_file = test_data_dir / "runs" / f"{run1_id}.json"
+        with open(run1_file, "r") as f:
+            run1_data = json_module.load(f)
         run1_data.update(
             {
                 "status": "completed",
                 "metrics": {"recall": 0.9, "precision": 0.85, "f1": 0.875},
             }
         )
-        save_json(run1_file, run1_data)
+        with open(run1_file, "w") as f:
+            json_module.dump(run1_data, f, indent=2)
 
-        run2_file = get_collection_path("runs") / f"{run2_id}.json"
-        run2_data = load_json(run2_file)
+        run2_file = test_data_dir / "runs" / f"{run2_id}.json"
+        with open(run2_file, "r") as f:
+            run2_data = json_module.load(f)
         run2_data.update(
             {
                 "status": "completed",
                 "metrics": {"recall": 0.95, "precision": 0.9, "f1": 0.925},
             }
         )
-        save_json(run2_file, run2_data)
+        with open(run2_file, "w") as f:
+            json_module.dump(run2_data, f, indent=2)
+
+        # Update index
+        index_file = test_data_dir / "runs" / "index.json"
+        with open(index_file, "r") as f:
+            index = json_module.load(f)
+        for item in index.get("items", []):
+            if item.get("id") == run1_id:
+                item["status"] = "completed"
+            if item.get("id") == run2_id:
+                item["status"] = "completed"
+        with open(index_file, "w") as f:
+            json_module.dump(index, f, indent=2)
 
         # Compare
         response = client.get(f"/api/runs/{run1_id}/compare/{run2_id}")

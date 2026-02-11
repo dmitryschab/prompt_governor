@@ -252,7 +252,10 @@ def sample_run_id(
 
 @pytest.fixture
 def sample_completed_run(
-    client: TestClient, sample_prompt_id: str, sample_config_id: str
+    client: TestClient,
+    sample_prompt_id: str,
+    sample_config_id: str,
+    test_data_dir: Path,
 ) -> str:
     """Create a sample completed run with metrics and output.
 
@@ -260,6 +263,7 @@ def sample_completed_run(
         client: TestClient fixture
         sample_prompt_id: ID of prompt to use
         sample_config_id: ID of config to use
+        test_data_dir: Temporary data directory
 
     Returns:
         ID of the created run
@@ -278,10 +282,10 @@ def sample_completed_run(
     run_id = response.json()["run_id"]
 
     # Manually update the run to completed status with metrics
-    from mvp.services.storage import load_json, save_json, get_collection_path
-
-    run_file = get_collection_path("runs") / f"{run_id}.json"
-    run_data = load_json(run_file)
+    # Use the test_data_dir directly instead of get_collection_path
+    run_file = test_data_dir / "runs" / f"{run_id}.json"
+    with open(run_file, "r") as f:
+        run_data = json.load(f)
     run_data.update(
         {
             "status": "completed",
@@ -302,7 +306,19 @@ def sample_completed_run(
             "tokens": {"input": 2048, "output": 512},
         }
     )
-    save_json(run_file, run_data)
+    with open(run_file, "w") as f:
+        json.dump(run_data, f, indent=2)
+
+    # Update the index as well
+    index_file = test_data_dir / "runs" / "index.json"
+    with open(index_file, "r") as f:
+        index = json.load(f)
+    for item in index.get("items", []):
+        if item.get("id") == run_id:
+            item["status"] = "completed"
+            break
+    with open(index_file, "w") as f:
+        json.dump(index, f, indent=2)
 
     return run_id
 
