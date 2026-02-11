@@ -1,18 +1,53 @@
 """FastAPI application entry point for Prompt Governor MVP."""
 
+import logging
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
+from fastapi.staticfiles import StaticFiles
 
 from mvp.api import api_router
+from mvp.services.storage import get_collection_path
+from mvp.utils.errors import register_exception_handlers
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler for startup and shutdown events."""
+    # Startup: Ensure data directories exist
+    logger.info("Starting up Prompt Governor MVP...")
+
+    collections = ["prompts", "configs", "runs"]
+    for collection in collections:
+        try:
+            path = get_collection_path(collection)
+            path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Ensured directory exists: {path}")
+        except Exception as e:
+            logger.error(f"Failed to create directory for {collection}: {e}")
+
+    logger.info("Startup complete. Prompt Governor MVP ready.")
+    yield
+    # Shutdown
+    logger.info("Shutting down Prompt Governor MVP...")
+
 
 app = FastAPI(
     title="Prompt Governor",
     description="Lightweight prompt optimization tool for contract extraction",
     version="0.1.0",
+    lifespan=lifespan,
 )
+
+# Register exception handlers
+register_exception_handlers(app)
 
 # Include API router
 app.include_router(api_router)
@@ -64,5 +99,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-
-# Hot reload test
