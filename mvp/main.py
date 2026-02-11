@@ -6,12 +6,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from mvp.api import api_router
 from mvp.services.storage import get_collection_path
 from mvp.utils.errors import register_exception_handlers
+from mvp.utils.cache import get_cache_stats
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,6 +51,9 @@ app = FastAPI(
 # Register exception handlers
 register_exception_handlers(app)
 
+# Add GZip compression middleware (compress responses > 1KB)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Include API router
 app.include_router(api_router)
 
@@ -84,15 +89,48 @@ async def test_volumes():
     return {"volumes_mounted": volumes, "all_mounted": all(volumes.values())}
 
 
-# Mount static files (frontend)
+# Cache control headers for static files
+CACHE_CONTROL_STATIC = "public, max-age=86400"  # 1 day for static assets
+CACHE_CONTROL_INDEX = "no-cache"  # No cache for HTML
+
+
+class CachedStaticFiles(StaticFiles):
+    """StaticFiles with cache headers."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+
+        # Add cache headers based on file type
+        if path.endswith(
+            (".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2")
+        ):
+            response.headers["Cache-Control"] = CACHE_CONTROL_STATIC
+        elif path.endswith(".html") or path == "":
+            response.headers["Cache-Control"] = CACHE_CONTROL_INDEX
+
+        return response
+
+
+# Mount static files (frontend) with caching
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    app.mount("/static", CachedStaticFiles(directory=static_dir), name="static")
 
     @app.get("/")
     async def serve_index():
         """Serve the frontend index page."""
-        return FileResponse(os.path.join(static_dir, "index.html"))
+        response = FileResponse(
+            os.path.join(static_dir, "index.html"),
+            headers={"Cache-Control": CACHE_CONTROL_INDEX},
+        )
+        return response
+
+
+# Performance monitoring endpoint
+@app.get("/api/performance/cache-stats")
+async def cache_statistics():
+    """Get cache statistics for monitoring."""
+    return await get_cache_stats()
 
 
 if __name__ == "__main__":
