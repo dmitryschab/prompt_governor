@@ -350,46 +350,53 @@
         showTab(tabName, updateHash = true) {
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
-            
+
             // Validate tab exists
             const targetContent = document.getElementById(tabName);
             if (!targetContent) {
                 console.warn(`Tab '${tabName}' not found`);
                 return false;
             }
-            
+
             // Update button states
             tabButtons.forEach(btn => {
                 const isTarget = btn.dataset.tab === tabName;
                 btn.classList.toggle('active', isTarget);
                 btn.setAttribute('aria-selected', isTarget);
+                btn.setAttribute('tabindex', isTarget ? '0' : '-1');
             });
-            
+
             // Update content visibility
             tabContents.forEach(content => {
                 const isTarget = content.id === tabName;
                 content.classList.toggle('active', isTarget);
                 content.setAttribute('aria-hidden', !isTarget);
-                
-                // Focus management for accessibility
+
+                // Use hidden attribute for better accessibility
                 if (isTarget) {
+                    content.removeAttribute('hidden');
                     content.setAttribute('tabindex', '-1');
+                } else {
+                    content.setAttribute('hidden', '');
                 }
             });
-            
+
             // Update state
             State.set('currentTab', tabName);
-            
+
             // Update URL hash for deep linking
             if (updateHash) {
                 window.location.hash = tabName;
             }
-            
+
             // Trigger tab change event
             window.dispatchEvent(new CustomEvent('tabchange', {
                 detail: { tab: tabName }
             }));
-            
+
+            // Announce tab change to screen readers
+            AccessibilityManager.announce(`Switched to ${tabName} tab`, 'polite');
+
             Utils.updateStatus(`Switched to ${tabName} tab`);
             return true;
         },
