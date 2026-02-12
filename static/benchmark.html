@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT-5-mini Benchmark Visualization</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* Benchmark-specific styles */
+        .benchmark-page {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: var(--space-xl);
+        }
+
+        /* Large metric cards for summary */
+        .metric-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-xl);
+            margin-bottom: var(--space-xl);
+        }
+
+        .metric-card-large {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-artistic);
+            border: 4px solid var(--afro-deep-brown);
+            padding: var(--space-xl);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card-large:hover {
+            transform: translateY(-4px);
+            box-shadow: 8px 8px 0 var(--afro-deep-brown);
+        }
+
+        .metric-card-large::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 8px;
+        }
+
+        .metric-card-large.minimal::before {
+            background: linear-gradient(90deg, var(--afro-terracotta), var(--afro-ochre));
+        }
+
+        .metric-card-large.low::before {
+            background: linear-gradient(90deg, var(--picasso-blue), var(--picasso-cerulean));
+        }
+
+        .metric-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-lg);
+        }
+
+        .metric-card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--afro-deep-brown);
+            margin: 0;
+        }
+
+        .metric-card-badge {
+            padding: var(--space-xs) var(--space-md);
+            border-radius: var(--radius-md);
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-card-badge.minimal {
+            background: var(--afro-terracotta);
+            color: white;
+        }
+
+        .metric-card-badge.low {
+            background: var(--picasso-blue);
+            color: white;
+        }
+
+        .metric-card-value {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--afro-deep-brown);
+            margin: 0;
+            line-height: 1;
+        }
+
+        .metric-card-value span {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-left: var(--space-xs);
+        }
+
+        .metric-card-comparison {
+            margin-top: var(--space-md);
+            padding-top: var(--space-md);
+            border-top: 2px dashed var(--border);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .metric-card-comparison .diff-positive {
+            color: var(--success);
+            font-weight: 700;
+        }
+
+        .metric-card-comparison .diff-negative {
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        /* Section headers */
+        .section-header-large {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            margin-bottom: var(--space-xl);
+            padding-bottom: var(--space-md);
+            border-bottom: 4px solid var(--afro-terracotta);
+        }
+
+        .section-header-large h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--afro-deep-brown);
+            margin: 0;
+        }
+
+        .section-icon {
+            font-size: 1.75rem;
+            filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.1));
+        }
+
+        /* Document table enhancements */
+        .performance-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .performance-indicator.excellent {
+            background: rgba(80, 200, 120, 0.15);
+            color: var(--success);
+            border: 2px solid var(--success);
+        }
+
+        .performance-indicator.good {
+            background: rgba(184, 134, 11, 0.15);
+            color: var(--afro-gold);
+            border: 2px solid var(--afro-gold);
+        }
+
+        .performance-indicator.fair {
+            background: rgba(204, 119, 34, 0.15);
+            color: var(--afro-ochre);
+            border: 2px solid var(--afro-ochre);
+        }
+
+        .performance-indicator.poor {
+            background: rgba(196, 30, 58, 0.15);
+            color: var(--danger);
+            border: 2px solid var(--danger);
+        }
+
+        .best-performer {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            font-weight: 700;
+            padding: var(--space-xs) var(--space-sm);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+        }
+
+        .best-performer.minimal {
+            background: var(--afro-terracotta);
+            color: white;
+        }
+
+        .best-performer.low {
+            background: var(--picasso-blue);
+            color: white;
+        }
+
+        .best-performer.tie {
+            background: var(--afro-gold);
+            color: var(--afro-deep-brown);
+        }
+
+        /* Sortable table headers */
+        .table th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 2rem;
+        }
+
+        .table th.sortable:hover {
+            background: var(--afro-mud);
+        }
+
+        .table th.sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 0.75rem;
+            opacity: 0.5;
+            font-size: 0.75rem;
+        }
+
+        .table th.sortable.asc::after {
+            content: '↑';
+            opacity: 1;
+            color: var(--picasso-yellow);
+        }
+
+        .table th.sortable.desc::after {
+            content: '↓';
+            opacity: 1;
+            color: var(--picasso-yellow);
+        }
+
+        /* Chart containers */
+        .chart-container {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-artistic);
+            border: 3px solid var(--afro-deep-brown);
+            padding: var(--space-xl);
+            position: relative;
+            margin-bottom: var(--space-xl);
+        }
+
+        .chart-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                var(--afro-terracotta) 0%,
+                var(--picasso-blue) 50%,
+                var(--afro-gold) 100%
+            );
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+
+        .chart-wrapper.tall {
+            height: 500px;
+        }
+
+        /* Two-column layout for charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: var(--space-xl);
+        }
+
+        /* Cost analysis cards */
+        .cost-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+
+        .cost-card {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-artistic);
+            border: 3px solid var(--afro-deep-brown);
+            padding: var(--space-lg);
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .cost-card:hover {
+            transform: translateY(-3px) rotate(1deg);
+            box-shadow: 6px 6px 0 var(--afro-deep-brown);
+        }
+
+        .cost-card-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+        }
+
+        .cost-card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--afro-deep-brown);
+        }
+
+        .cost-card-subtext {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: var(--space-xs);
+        }
+
+        /* Token efficiency bar */
+        .efficiency-bar {
+            background: var(--bg-light);
+            border-radius: var(--radius-md);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-xl);
+            border: 3px solid var(--border);
+        }
+
+        .efficiency-bar-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-md);
+        }
+
+        .efficiency-bar-label {
+            font-weight: 700;
+            color: var(--afro-deep-brown);
+        }
+
+        .efficiency-bar-value {
+            font-weight: 700;
+            color: var(--afro-terracotta);
+        }
+
+        .efficiency-track {
+            height: 24px;
+            background: var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid var(--afro-deep-brown);
+        }
+
+        .efficiency-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s ease;
+            position: relative;
+        }
+
+        .efficiency-fill.minimal {
+            background: linear-gradient(90deg, var(--afro-terracotta), var(--afro-ochre));
+        }
+
+        .efficiency-fill.low {
+            background: linear-gradient(90deg, var(--picasso-blue), var(--picasso-cerulean));
+        }
+
+        .efficiency-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 8px,
+                rgba(255,255,255,0.2) 8px,
+                rgba(255,255,255,0.2) 16px
+            );
+        }
+
+        /* Legend */
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-xl);
+            margin-top: var(--space-lg);
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid var(--afro-deep-brown);
+        }
+
+        .legend-color.minimal {
+            background: var(--afro-terracotta);
+        }
+
+        .legend-color.low {
+            background: var(--picasso-blue);
+        }
+
+        /* Loading state */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(245, 240, 230, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 6px solid var(--border);
+            border-top-color: var(--afro-terracotta);
+            border-right-color: var(--picasso-blue);
+            border-bottom-color: var(--afro-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: var(--space-xl);
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--afro-deep-brown);
+            font-style: italic;
+        }
+
+        /* Error state */
+        .error-message {
+            text-align: center;
+            padding: var(--space-xl);
+            color: var(--danger);
+        }
+
+        .error-message h3 {
+            color: var(--danger);
+            font-size: 1.5rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .metric-cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .metric-card-value {
+                font-size: 2.5rem;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+
+            .cost-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Section spacing */
+        .benchmark-section {
+            margin-bottom: var(--space-xl);
+        }
+
+        /* Model comparison header */
+        .model-comparison-header {
+            background: var(--bg-white);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-artistic);
+            border: 3px solid var(--afro-deep-brown);
+            padding: var(--space-xl);
+            margin-bottom: var(--space-xl);
+            display: flex;
+            justify-content: center;
+            gap: var(--space-xl);
+            flex-wrap: wrap;
+        }
+
+        .model-badge {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            padding: var(--space-md) var(--space-xl);
+            border-radius: var(--radius-lg);
+            border: 3px solid;
+        }
+
+        .model-badge.minimal {
+            background: rgba(198, 93, 59, 0.1);
+            border-color: var(--afro-terracotta);
+        }
+
+        .model-badge.low {
+            background: rgba(0, 71, 171, 0.1);
+            border-color: var(--picasso-blue);
+        }
+
+        .model-badge-icon {
+            font-size: 2rem;
+        }
+
+        .model-badge-info h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .model-badge-info p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading benchmark data...</div>
+    </div>
+
+    <!-- Artistic Header -->
+    <header class="app-header">
+        <div class="header-container">
+            <h1 class="app-title">GPT-5-mini Benchmark Visualization</h1>
+            <div class="header-actions">
+                <span class="version-tag">v1.0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="benchmark-page">
+        <!-- Model Comparison Header -->
+        <div class="model-comparison-header">
+            <div class="model-badge minimal">
+                <span class="model-badge-icon">🚀</span>
+                <div class="model-badge-info">
+                    <h4>Minimal Effort</h4>
+                    <p>Fastest inference, lowest cost</p>
+                </div>
+            </div>
+            <div class="model-badge low">
+                <span class="model-badge-icon">🧠</span>
+                <div class="model-badge-info">
+                    <h4>Low Effort</h4>
+                    <p>Enhanced reasoning, higher accuracy</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Metrics Section -->
+        <section class="benchmark-section" id="summarySection">
+            <div class="section-header-large">
+                <span class="section-icon">📊</span>
+                <h2>Summary Metrics</h2>
+            </div>
+            
+            <div class="metric-cards-grid" id="summaryMetrics">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Document Performance Section -->
+        <section class="benchmark-section" id="documentSection">
+            <div class="section-header-large">
+                <span class="section-icon">📄</span>
+                <h2>Document Performance</h2>
+            </div>
+            
+            <div class="table-container">
+                <table class="table" id="documentTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-column="name">Document Name</th>
+                            <th class="sortable" data-column="minimalAccuracy">Accuracy (Minimal)</th>
+                            <th class="sortable" data-column="lowAccuracy">Accuracy (Low)</th>
+                            <th class="sortable" data-column="difference">Difference</th>
+                            <th>Best Performer</th>
+                        </tr>
+                    </thead>
+                    <tbody id="documentTableBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Field-Level Accuracy Section -->
+        <section class="benchmark-section" id="fieldSection">
+            <div class="section-header-large">
+                <span class="section-icon">🎯</span>
+                <h2>Field-Level Accuracy</h2>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-wrapper tall">
+                    <canvas id="fieldAccuracyChart"></canvas>
+                </div>
+                <div class="chart-legend">
+                    <div class="legend-item">
+                        <div class="legend-color minimal"></div>
+                        <span>Minimal Effort</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color low"></div>
+                        <span>Low Effort</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cost Analysis Section -->
+        <section class="benchmark-section" id="costSection">
+            <div class="section-header-large">
+                <span class="section-icon">💰</span>
+                <h2>Cost Analysis</h2>
+            </div>
+            
+            <div class="cost-grid" id="costMetrics">
+                <!-- Populated by JavaScript -->
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <canvas id="costPerDocChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <canvas id="tokenUsageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="efficiency-bar" id="efficiencyMetrics">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="footer-container">
+            <div class="status-area">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">System Ready</span>
+            </div>
+            <div class="footer-info">
+                <span>Prompt Governor Benchmark</span>
+                <span class="separator">|</span>
+                <span id="lastUpdated">Updated: --</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Benchmark Data Store
+        let benchmarkData = null;
+        let currentSort = { column: 'name', direction: 'asc' };
+        let fieldAccuracyChart = null;
+        let costPerDocChart = null;
+        let tokenUsageChart = null;
+
+        // Color palette matching CSS variables
+        const colors = {
+            minimal: '#C65D3B',
+            minimalLight: 'rgba(198, 93, 59, 0.7)',
+            minimalBg: 'rgba(198, 93, 59, 0.2)',
+            low: '#0047AB',
+            lowLight: 'rgba(0, 71, 171, 0.7)',
+            lowBg: 'rgba(0, 71, 171, 0.2)',
+            gold: '#B8860B',
+            success: '#50C878',
+            danger: '#C41E3A',
+            warning: '#CC7722'
+        };
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await loadBenchmarkData();
+                renderAll();
+                hideLoading();
+            } catch (error) {
+                console.error('Failed to load benchmark data:', error);
+                showError('Failed to load benchmark data. Please try again later.');
+            }
+        });
+
+        // Load benchmark data from API
+        async function loadBenchmarkData() {
+            const response = await fetch('/api/runs/benchmark_summary.json');
+            if (!response.ok) {
+                // Try fallback to sample data for demo
+                console.warn('API endpoint not available, using sample data');
+                benchmarkData = generateSampleData();
+                return;
+            }
+            benchmarkData = await response.json();
+        }
+
+        // Generate sample data for demonstration
+        function generateSampleData() {
+            const documents = [
+                'invoice_001.pdf', 'invoice_002.pdf', 'receipt_001.pdf', 'receipt_002.pdf',
+                'contract_001.pdf', 'contract_002.pdf', 'form_001.pdf', 'form_002.pdf',
+                'letter_001.pdf', 'letter_002.pdf', 'statement_001.pdf', 'statement_002.pdf'
+            ];
+
+            const fields = [
+                'total_amount', 'date', 'vendor_name', 'invoice_number', 'tax_amount',
+                'subtotal', 'currency', 'payment_terms', 'due_date', 'purchase_order',
+                'line_items', 'shipping_address', 'billing_address', 'contact_email',
+                'contact_phone', 'account_number', 'reference_number', 'discount_amount'
+            ];
+
+            return {
+                summary: {
+                    minimal: {
+                        accuracy: 0.847,
+                        avgLatency: 1.23,
+                        totalCost: 0.045,
+                        totalTokens: 45600
+                    },
+                    low: {
+                        accuracy: 0.923,
+                        avgLatency: 2.45,
+                        totalCost: 0.089,
+                        totalTokens: 89200
+                    }
+                },
+                documents: documents.map(name => ({
+                    name: name,
+                    minimalAccuracy: Math.random() * 0.3 + 0.7,
+                    lowAccuracy: Math.random() * 0.2 + 0.8,
+                    minimalLatency: Math.random() * 0.5 + 1.0,
+                    lowLatency: Math.random() * 1.0 + 2.0,
+                    minimalCost: Math.random() * 0.002 + 0.003,
+                    lowCost: Math.random() * 0.004 + 0.006
+                })),
+                fields: fields.map(field => ({
+                    name: field,
+                    minimalAccuracy: Math.random() * 0.25 + 0.75,
+                    lowAccuracy: Math.random() * 0.15 + 0.85
+                })).sort((a, b) => (b.minimalAccuracy + b.lowAccuracy) - (a.minimalAccuracy + a.lowAccuracy)),
+                costs: {
+                    minimalPerDoc: 0.00375,
+                    lowPerDoc: 0.00742,
+                    minimalTokensPerDoc: 3800,
+                    lowTokensPerDoc: 7433
+                }
+            };
+        }
+
+        // Render all sections
+        function renderAll() {
+            renderSummaryMetrics();
+            renderDocumentTable();
+            renderFieldAccuracyChart();
+            renderCostAnalysis();
+            updateTimestamp();
+        }
+
+        // Render summary metrics cards
+        function renderSummaryMetrics() {
+            const container = document.getElementById('summaryMetrics');
+            const { summary } = benchmarkData;
+            
+            const metrics = [
+                {
+                    title: 'Overall Accuracy',
+                    minimal: summary.minimal.accuracy,
+                    low: summary.low.accuracy,
+                    format: (v) => `${(v * 100).toFixed(1)}%`,
+                    higherIsBetter: true
+                },
+                {
+                    title: 'Average Latency',
+                    minimal: summary.minimal.avgLatency,
+                    low: summary.low.avgLatency,
+                    format: (v) => `${v.toFixed(2)}s`,
+                    higherIsBetter: false
+                },
+                {
+                    title: 'Total Cost',
+                    minimal: summary.minimal.totalCost,
+                    low: summary.low.totalCost,
+                    format: (v) => `$${v.toFixed(3)}`,
+                    higherIsBetter: false
+                },
+                {
+                    title: 'Total Tokens',
+                    minimal: summary.minimal.totalTokens,
+                    low: summary.low.totalTokens,
+                    format: (v) => v.toLocaleString(),
+                    higherIsBetter: false
+                }
+            ];
+
+            container.innerHTML = metrics.map(metric => {
+                const minimalVal = metric.minimal;
+                const lowVal = metric.low;
+                const diff = lowVal - minimalVal;
+                const diffPercent = ((diff / minimalVal) * 100);
+                const diffClass = metric.higherIsBetter 
+                    ? (diff > 0 ? 'diff-positive' : 'diff-negative')
+                    : (diff < 0 ? 'diff-positive' : 'diff-negative');
+                const diffSign = diff > 0 ? '+' : '';
+                
+                return `
+                    <div class="metric-card-large minimal">
+                        <div class="metric-card-header">
+                            <h3 class="metric-card-title">${metric.title}</h3>
+                            <span class="metric-card-badge minimal">Minimal</span>
+                        </div>
+                        <p class="metric-card-value">${metric.format(minimalVal)}</p>
+                        <div class="metric-card-comparison">
+                            vs Low: <span class="${diffClass}">${diffSign}${metric.higherIsBetter ? diffPercent.toFixed(1) : diffPercent.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    <div class="metric-card-large low">
+                        <div class="metric-card-header">
+                            <h3 class="metric-card-title">${metric.title}</h3>
+                            <span class="metric-card-badge low">Low</span>
+                        </div>
+                        <p class="metric-card-value">${metric.format(lowVal)}</p>
+                        <div class="metric-card-comparison">
+                            vs Minimal: <span class="${diffClass === 'diff-positive' ? 'diff-negative' : 'diff-positive'}">${diffSign}${metric.higherIsBetter ? diffPercent.toFixed(1) : diffPercent.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render document performance table
+        function renderDocumentTable() {
+            const tbody = document.getElementById('documentTableBody');
+            let { documents } = benchmarkData;
+            
+            // Sort documents
+            documents = sortDocuments(documents);
+            
+            tbody.innerHTML = documents.map(doc => {
+                const diff = doc.lowAccuracy - doc.minimalAccuracy;
+                const diffPercent = (diff * 100).toFixed(1);
+                const diffSign = diff >= 0 ? '+' : '';
+                
+                let bestPerformer = 'tie';
+                if (doc.minimalAccuracy > doc.lowAccuracy + 0.01) bestPerformer = 'minimal';
+                else if (doc.lowAccuracy > doc.minimalAccuracy + 0.01) bestPerformer = 'low';
+                
+                const minimalClass = getPerformanceClass(doc.minimalAccuracy);
+                const lowClass = getPerformanceClass(doc.lowAccuracy);
+                
+                return `
+                    <tr>
+                        <td><strong>${doc.name}</strong></td>
+                        <td>
+                            <span class="performance-indicator ${minimalClass}">
+                                ${(doc.minimalAccuracy * 100).toFixed(1)}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="performance-indicator ${lowClass}">
+                                ${(doc.lowAccuracy * 100).toFixed(1)}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="${diff >= 0 ? 'text-success' : 'text-error'}">
+                                ${diffSign}${diffPercent}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="best-performer ${bestPerformer}">
+                                ${bestPerformer === 'minimal' ? '🚀 Minimal' : bestPerformer === 'low' ? '🧠 Low' : '🤝 Tie'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Get performance class based on accuracy
+        function getPerformanceClass(accuracy) {
+            if (accuracy >= 0.95) return 'excellent';
+            if (accuracy >= 0.85) return 'good';
+            if (accuracy >= 0.70) return 'fair';
+            return 'poor';
+        }
+
+        // Sort documents
+        function sortDocuments(documents) {
+            const sorted = [...documents];
+            const { column, direction } = currentSort;
+            
+            sorted.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch (column) {
+                    case 'name':
+                        aVal = a.name;
+                        bVal = b.name;
+                        break;
+                    case 'minimalAccuracy':
+                        aVal = a.minimalAccuracy;
+                        bVal = b.minimalAccuracy;
+                        break;
+                    case 'lowAccuracy':
+                        aVal = a.lowAccuracy;
+                        bVal = b.lowAccuracy;
+                        break;
+                    case 'difference':
+                        aVal = a.lowAccuracy - a.minimalAccuracy;
+                        bVal = b.lowAccuracy - b.minimalAccuracy;
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (typeof aVal === 'string') {
+                    return direction === 'asc' 
+                        ? aVal.localeCompare(bVal) 
+                        : bVal.localeCompare(aVal);
+                }
+                
+                return direction === 'asc' ? aVal - bVal : bVal - aVal;
+            });
+            
+            return sorted;
+        }
+
+        // Setup sortable headers
+        document.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const column = th.dataset.column;
+                
+                // Update sort direction
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'desc';
+                }
+                
+                // Update header classes
+                document.querySelectorAll('th.sortable').forEach(header => {
+                    header.classList.remove('asc', 'desc');
+                });
+                th.classList.add(currentSort.direction);
+                
+                // Re-render table
+                renderDocumentTable();
+            });
+        });
+
+        // Render field accuracy chart
+        function renderFieldAccuracyChart() {
+            const ctx = document.getElementById('fieldAccuracyChart').getContext('2d');
+            const { fields } = benchmarkData;
+            
+            // Take top 20 fields
+            const topFields = fields.slice(0, 20);
+            
+            if (fieldAccuracyChart) {
+                fieldAccuracyChart.destroy();
+            }
+            
+            fieldAccuracyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topFields.map(f => f.name.replace(/_/g, ' ')),
+                    datasets: [
+                        {
+                            label: 'Minimal Effort',
+                            data: topFields.map(f => f.minimalAccuracy * 100),
+                            backgroundColor: colors.minimalBg,
+                            borderColor: colors.minimal,
+                            borderWidth: 2,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Low Effort',
+                            data: topFields.map(f => f.lowAccuracy * 100),
+                            backgroundColor: colors.lowBg,
+                            borderColor: colors.low,
+                            borderWidth: 2,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.dataset.label}: ${context.raw.toFixed(1)}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Accuracy (%)',
+                                font: { weight: 'bold' }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                font: { weight: 'bold' }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render cost analysis
+        function renderCostAnalysis() {
+            const { summary, costs } = benchmarkData;
+            const container = document.getElementById('costMetrics');
+            
+            // Cost metrics
+            const costData = [
+                { label: 'Cost per Doc (Minimal)', value: `$${costs.minimalPerDoc.toFixed(4)}` },
+                { label: 'Cost per Doc (Low)', value: `$${costs.lowPerDoc.toFixed(4)}` },
+                { label: 'Tokens per Doc (Minimal)', value: costs.minimalTokensPerDoc.toLocaleString() },
+                { label: 'Tokens per Doc (Low)', value: costs.lowTokensPerDoc.toLocaleString() }
+            ];
+            
+            container.innerHTML = costData.map(item => `
+                <div class="cost-card">
+                    <div class="cost-card-label">${item.label}</div>
+                    <div class="cost-card-value">${item.value}</div>
+                </div>
+            `).join('');
+            
+            // Render charts
+            renderCostPerDocChart();
+            renderTokenUsageChart();
+            renderEfficiencyMetrics();
+        }
+
+        // Render cost per document chart
+        function renderCostPerDocChart() {
+            const ctx = document.getElementById('costPerDocChart').getContext('2d');
+            const { documents } = benchmarkData;
+            
+            if (costPerDocChart) {
+                costPerDocChart.destroy();
+            }
+            
+            costPerDocChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: documents.map(d => d.name.replace('.pdf', '')),
+                    datasets: [
+                        {
+                            label: 'Minimal',
+                            data: documents.map(d => d.minimalCost),
+                            backgroundColor: colors.minimal,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Low',
+                            data: documents.map(d => d.lowCost),
+                            backgroundColor: colors.low,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Cost per Document',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Cost ($)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render token usage chart
+        function renderTokenUsageChart() {
+            const ctx = document.getElementById('tokenUsageChart').getContext('2d');
+            const { summary } = benchmarkData;
+            
+            if (tokenUsageChart) {
+                tokenUsageChart.destroy();
+            }
+            
+            tokenUsageChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Minimal Effort', 'Low Effort'],
+                    datasets: [{
+                        data: [summary.minimal.totalTokens, summary.low.totalTokens],
+                        backgroundColor: [colors.minimal, colors.low],
+                        borderColor: [colors.minimal, colors.low],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Token Usage Distribution',
+                            font: { size: 16, weight: 'bold' }
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const total = summary.minimal.totalTokens + summary.low.totalTokens;
+                                    const percentage = ((context.raw / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.raw.toLocaleString()} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render efficiency metrics
+        function renderEfficiencyMetrics() {
+            const container = document.getElementById('efficiencyMetrics');
+            const { summary } = benchmarkData;
+            
+            // Calculate efficiency metrics
+            const minimalEfficiency = (summary.minimal.accuracy / summary.minimal.totalCost).toFixed(2);
+            const lowEfficiency = (summary.low.accuracy / summary.low.totalCost).toFixed(2);
+            const maxEfficiency = Math.max(minimalEfficiency, lowEfficiency);
+            
+            container.innerHTML = `
+                <h3 style="margin: 0 0 var(--space-lg) 0; color: var(--afro-deep-brown);">Token Efficiency</h3>
+                <div class="efficiency-bar-header">
+                    <span class="efficiency-bar-label">Minimal Effort</span>
+                    <span class="efficiency-bar-value">${minimalEfficiency} accuracy/$</span>
+                </div>
+                <div class="efficiency-track" style="margin-bottom: var(--space-lg);">
+                    <div class="efficiency-fill minimal" style="width: ${(minimalEfficiency / maxEfficiency * 100).toFixed(0)}%;"></div>
+                </div>
+                
+                <div class="efficiency-bar-header">
+                    <span class="efficiency-bar-label">Low Effort</span>
+                    <span class="efficiency-bar-value">${lowEfficiency} accuracy/$</span>
+                </div>
+                <div class="efficiency-track">
+                    <div class="efficiency-fill low" style="width: ${(lowEfficiency / maxEfficiency * 100).toFixed(0)}%;"></div>
+                </div>
+            `;
+        }
+
+        // Update timestamp
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = 
+                `Updated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+        }
+
+        // Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // Show error message
+        function showError(message) {
+            document.getElementById('loadingOverlay').innerHTML = `
+                <div class="error-message">
+                    <h3>⚠️ Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
