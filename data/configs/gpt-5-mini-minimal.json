@@ -1,0 +1,16 @@
+{
+  "id": "gpt-5-mini-minimal",
+  "name": "GPT-5-mini (minimal)",
+  "model": "gpt-5-mini",
+  "reasoning_effort": "minimal",
+  "temperature": 1.0,
+  "provider": "openai",
+  "description": "GPT-5-mini with reasoning_effort='minimal' for contract extraction",
+  "template": "FFH Reinsurance Contracts (improved)_20260205_1110.prompt_template",
+  "mode": "monolith",
+  "created_at": "2026-02-12T08:59:42.614827",
+  "version": "1.0.0",
+  "contract_schema_hash": "82d67bbfeb6eca1ca79ac134eb57cbcf688e827ce02d22b4cbe221321cd774e7",
+  "response_format_hash": "9cbe561b48d7ba0ee41e80956705fe563efe40df6391afed595f21d66690d02e",
+  "model_id": "gpt-5-mini"
+}

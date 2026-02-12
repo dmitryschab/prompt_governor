@@ -4,7 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prompt Governor</title>
-    <link rel="stylesheet" href="css/style.css">
+    <!-- Artistic Fonts: Merriweather for elegance + Kanit for bold headers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        /* Font overrides for artistic effect */
+        body {
+            font-family: 'Merriweather', Georgia, serif;
+        }
+        h1, h2, h3, h4, h5, h6, .btn, .tab-button, .app-title {
+            font-family: 'Kanit', sans-serif;
+        }
+        .json-editor, .json-textarea, .line-numbers, code, pre, .config-card-model, .info-value, .missing-fields-list li {
+            font-family: 'Monaco', 'Menlo', 'Consolas', 'Fira Code', monospace;
+        }
+    </style>
 </head>
 <body>
     <!-- Header with app name -->
@@ -409,9 +425,9 @@
     </footer>
 
     <!-- Scripts - Performance optimized loading -->
-    <script src="js/components/api-cache.js"></script>
-    <script src="js/components/virtual-scroller.js"></script>
-    <script src="js/components/json-editor.js"></script>
-    <script src="js/app.js"></script>
+    <script src="/static/js/components/api-cache.js"></script>
+    <script src="/static/js/components/virtual-scroller.js"></script>
+    <script src="/static/js/components/json-editor.js"></script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>

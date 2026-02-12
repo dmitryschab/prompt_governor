@@ -10,6 +10,7 @@ Example:
 from fastapi import APIRouter
 
 # Import individual routers
+from mvp.api.benchmark import router as benchmark_router
 from mvp.api.configs import router as configs_router
 from mvp.api.documents import router as documents_router
 from mvp.api.prompts import router as prompts_router
@@ -19,6 +20,7 @@ from mvp.api.runs import router as runs_router
 api_router = APIRouter()
 
 # Include sub-routers
+api_router.include_router(benchmark_router)
 api_router.include_router(configs_router)
 api_router.include_router(documents_router)
 api_router.include_router(prompts_router)
@@ -26,6 +28,7 @@ api_router.include_router(runs_router)
 
 __all__ = [
     "api_router",
+    "benchmark_router",
     "configs_router",
     "documents_router",
     "prompts_router",

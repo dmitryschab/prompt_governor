@@ -2,11 +2,11 @@
   "version": "1.0.0",
   "last_updated": "2026-02-11T18:09:19.216161Z",
   "count": 2,
-  "prompts": [
+  "items": [
     {
       "id": "dc21b215-8726-4d82-99f0-ac9ba6222d26",
-      "name": "FFH Reinsurance Contracts",
-      "description": "Main Prompt (Production prompt — do not edit)",
+      "name": "FFH Reinsurance Contracts (prod)",
+      "description": "Source: prompt_templates/FFH Reinsurance Contracts_prod.prompt_template",
       "created_at": "2026-02-11T18:09:19.198857Z",
       "parent_id": null,
       "tags": [
@@ -19,8 +19,8 @@
     },
     {
       "id": "bc8e607f-2902-4989-a89a-9ac8eb4be307",
-      "name": "FFH Reinsurance Contracts",
-      "description": "Main Prompt (Production prompt — do not edit)",
+      "name": "FFH Reinsurance Contracts (prod improved)",
+      "description": "Source: prompt_templates/FFH Reinsurance Contracts_prod_improved.prompt_template",
       "created_at": "2026-02-11T18:09:19.206353Z",
       "parent_id": null,
       "tags": [

@@ -30,6 +30,7 @@ services:
       # Live reload for development
       # Mounts local mvp/ directory for hot reload
       - ./mvp:/app/mvp
+      - ./static:/app/static
     environment:
       # Load all environment variables from .env file
       # This includes API keys and configuration
@@ -44,7 +45,7 @@ services:
     restart: unless-stopped
     # Health check to ensure service is running
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3

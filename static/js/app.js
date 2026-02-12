@@ -219,62 +219,66 @@
             
             // Show loading state
             Utils.showLoading();
-            
-            while (attempt < CONFIG.API_RETRIES) {
-                attempt++;
-                
-                try {
-                    // Create abort controller for timeout
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT);
-                    
-                    const response = await fetch(url, {
-                        ...config,
-                        signal: controller.signal
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    // Handle non-OK responses
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new APIError(
-                            errorData.message || `HTTP ${response.status}: ${response.statusText}`,
-                            response.status,
-                            errorData
-                        );
-                    }
-                    
-                    // Parse response
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        return await response.json();
-                    }
-                    return await response.text();
-                    
-                } catch (error) {
-                    lastError = error;
-                    
-                    // Don't retry on 4xx errors (client errors)
-                    if (error instanceof APIError && error.status >= 400 && error.status < 500) {
-                        break;
-                    }
-                    
-                    // Don't retry on abort (timeout)
-                    if (error.name === 'AbortError') {
-                        lastError = new APIError('Request timeout', 408);
-                        break;
-                    }
-                    
-                    // Wait before retry
-                    if (attempt < CONFIG.API_RETRIES) {
-                        await Utils.delay(CONFIG.API_RETRY_DELAY * attempt);
+
+            try {
+                while (attempt < CONFIG.API_RETRIES) {
+                    attempt++;
+
+                    try {
+                        // Create abort controller for timeout
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), CONFIG.API_TIMEOUT);
+
+                        const response = await fetch(url, {
+                            ...config,
+                            signal: controller.signal
+                        });
+
+                        clearTimeout(timeoutId);
+
+                        // Handle non-OK responses
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({}));
+                            throw new APIError(
+                                errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+                                response.status,
+                                errorData
+                            );
+                        }
+
+                        // Parse response
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            return await response.json();
+                        }
+                        return await response.text();
+
+                    } catch (error) {
+                        lastError = error;
+
+                        // Don't retry on 4xx errors (client errors)
+                        if (error instanceof APIError && error.status >= 400 && error.status < 500) {
+                            break;
+                        }
+
+                        // Don't retry on abort (timeout)
+                        if (error.name === 'AbortError') {
+                            lastError = new APIError('Request timeout', 408);
+                            break;
+                        }
+
+                        // Wait before retry
+                        if (attempt < CONFIG.API_RETRIES) {
+                            await Utils.delay(CONFIG.API_RETRY_DELAY * attempt);
+                        }
                     }
                 }
+
+                // All retries exhausted
+                throw lastError;
+            } finally {
+                Utils.hideLoading();
             }
-            
-            // All retries exhausted
-            throw lastError;
         },
         
         /**
@@ -854,6 +858,34 @@
         delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         },
+
+        /**
+         * Extract a list from API response payloads.
+         * Supports array, {key: []}, {data: []}, and {data: {key: []}} shapes.
+         * @param {*} response - API response payload
+         * @param {string} key - Expected list key (e.g. 'configs')
+         * @returns {Array} Normalized array
+         */
+        extractList(response, key) {
+            if (Array.isArray(response)) return response;
+            if (Array.isArray(response?.data)) return response.data;
+            if (Array.isArray(response?.[key])) return response[key];
+            if (Array.isArray(response?.data?.[key])) return response.data[key];
+            return [];
+        },
+
+        /**
+         * Extract an item/object from API response payloads.
+         * Supports raw item and {data: item} shapes.
+         * @param {*} response - API response payload
+         * @returns {*} Normalized object/value
+         */
+        extractItem(response) {
+            if (response && typeof response === 'object' && 'data' in response) {
+                return response.data;
+            }
+            return response;
+        },
         
         /**
          * Generate a unique ID
@@ -1195,7 +1227,7 @@
                 Utils.updateStatus('Loading configurations...', 'loading');
                 
                 const response = await API.get('/configs');
-                const configs = response.data || response || [];
+                const configs = Utils.extractList(response, 'configs');
                 
                 State.set('configs', configs);
                 this.renderConfigList(configs);
@@ -1246,16 +1278,18 @@
         updateRunConfigSelector(configs) {
             const selector = document.getElementById('run-config-select');
             if (!selector) return;
+
+            const safeConfigs = Array.isArray(configs) ? configs : [];
             
             const currentValue = selector.value;
             
             selector.innerHTML = '<option value="">Select config...</option>' +
-                configs.map(config => `
+                safeConfigs.map(config => `
                     <option value="${config.id}">${Utils.escapeHtml(config.name)} (${config.provider})</option>
                 `).join('');
             
             // Restore selection if still valid
-            if (currentValue && configs.find(c => c.id === currentValue)) {
+            if (currentValue && safeConfigs.find(c => c.id === currentValue)) {
                 selector.value = currentValue;
             }
         },
@@ -1544,7 +1578,7 @@
 
             try {
                 const response = await API.get('/prompts');
-                const prompts = response.data || response || [];
+                const prompts = Utils.extractList(response, 'prompts');
 
                 // Clear existing options except first
                 select.innerHTML = '<option value="">Select prompt...</option>';
@@ -1575,7 +1609,7 @@
 
             try {
                 const response = await API.get('/configs');
-                const configs = response.data || response || [];
+                const configs = Utils.extractList(response, 'configs');
 
                 // Clear existing options except first
                 select.innerHTML = '<option value="">Select config...</option>';
@@ -1606,7 +1640,7 @@
 
             try {
                 const response = await API.get('/documents');
-                const documents = response.data || response || [];
+                const documents = Utils.extractList(response, 'documents');
 
                 // Clear existing options except first
                 select.innerHTML = '<option value="">Select document...</option>';
@@ -1654,13 +1688,17 @@
                     document_name: documentName
                 });
 
-                const run = response.data || response;
-                this.currentRunId = run.id;
+                const run = Utils.extractItem(response);
+                const runId = run?.id || run?.run_id;
+                if (!runId) {
+                    throw new Error('Run creation response missing run ID');
+                }
+                this.currentRunId = runId;
 
                 Utils.showToast('Extraction started', 'info');
 
                 // Start polling for status
-                this.startPolling(run.id);
+                this.startPolling(runId);
 
             } catch (error) {
                 this.setLoading(false);
@@ -1810,7 +1848,7 @@
             this.pollInterval = setInterval(async () => {
                 try {
                     const response = await API.get(`/runs/${runId}`);
-                    const run = response.data || response;
+                    const run = Utils.extractItem(response);
 
                     // Calculate progress based on status (API doesn't have explicit progress field)
                     const progressMap = {
@@ -2003,8 +2041,8 @@
             if (!list) return;
 
             try {
-                const response = await API.get('/runs?limit=20');
-                const runs = response.data || response || [];
+                const response = await API.get('/runs?page_size=20');
+                const runs = Utils.extractList(response, 'runs');
 
                 State.set('runs', runs);
                 this.renderRunHistory(runs);
@@ -2100,7 +2138,7 @@
             try {
                 Utils.showLoading();
                 const response = await API.get(`/runs/${runId}`);
-                const run = response.data || response;
+                const run = Utils.extractItem(response);
 
                 this.currentRunId = run.id;
 
@@ -2607,7 +2645,8 @@
          */
         async loadPrompts() {
             try {
-                return await API.get('/prompts');
+                const response = await API.get('/prompts');
+                return Utils.extractList(response, 'prompts');
             } catch (error) {
                 console.warn('Failed to load prompts:', error);
                 return [];
@@ -2619,7 +2658,8 @@
          */
         async loadConfigs() {
             try {
-                return await API.get('/configs');
+                const response = await API.get('/configs');
+                return Utils.extractList(response, 'configs');
             } catch (error) {
                 console.warn('Failed to load configs:', error);
                 return [];
@@ -3580,6 +3620,26 @@
             
             selectA.innerHTML = options;
             selectB.innerHTML = options;
+
+            // Prefer prompt_templates pair for quick comparison when available
+            const fromTemplates = this.prompts.filter(p =>
+                (p.description || '').includes('prompt_templates/')
+            );
+            const improvedTemplate = fromTemplates.find(p =>
+                /improved/i.test(p.name || '') || /improved/i.test(p.description || '')
+            );
+            const baseTemplate = fromTemplates.find(p =>
+                p.id !== improvedTemplate?.id &&
+                (((p.name || '').toLowerCase().includes('(prod)')) || /_prod\.prompt_template/i.test(p.description || ''))
+            );
+            if (improvedTemplate && baseTemplate) {
+                selectA.value = improvedTemplate.id;
+                selectB.value = baseTemplate.id;
+            } else if (this.prompts.length >= 2) {
+                // Safe default: first two distinct prompts
+                selectA.value = this.prompts[0].id;
+                selectB.value = this.prompts[1].id;
+            }
             
             // Pre-select current prompt and previous one
             if (this.currentPromptId) {

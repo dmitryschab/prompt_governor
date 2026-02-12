@@ -1,4 +1,21 @@
 {
-  "items": [],
+  "items": [
+    {
+      "id": "gpt-5-mini-minimal",
+      "name": "GPT-5-mini (minimal)",
+      "provider": "openai",
+      "model_id": "gpt-5-mini",
+      "created_at": "2026-02-12T08:56:10.112507",
+      "updated_at": "2026-02-12T08:59:42.615455"
+    },
+    {
+      "id": "gpt-5-mini-low",
+      "name": "GPT-5-mini (low)",
+      "provider": "openai",
+      "model_id": "gpt-5-mini",
+      "created_at": "2026-02-12T08:56:10.113838",
+      "updated_at": "2026-02-12T08:59:42.616770"
+    }
+  ],
   "version": 1
 }

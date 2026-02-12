@@ -1,7 +1,7 @@
 {
   "id": "dc21b215-8726-4d82-99f0-ac9ba6222d26",
-  "name": "FFH Reinsurance Contracts",
-  "description": "Main Prompt (Production prompt — do not edit)",
+  "name": "FFH Reinsurance Contracts (prod)",
+  "description": "Source: prompt_templates/FFH Reinsurance Contracts_prod.prompt_template",
   "blocks": [
     {
       "title": "GOAL",
