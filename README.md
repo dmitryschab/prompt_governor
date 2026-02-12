@@ -8,7 +8,9 @@
 
 Manage, version, and optimize prompts. Track performance metrics (recall, precision, F1) and compare prompt versions against ground truth.
 
-![Screenshot](https://github.com/user-attachments/assets/8f1ac83d-bd2c-4014-9105-dcba083097bb)
+## Vibe
+
+<img width="1441" height="774" alt="Screenshot 2026-02-12 at 18 30 03" src="https://github.com/user-attachments/assets/07d0d8a3-b95d-4a93-844b-5f835c18fe63" />
 
 ## Quick Start
 
