@@ -12,7 +12,7 @@ Prompt Governor helps you manage, version, and optimize prompts for LLM-based da
 ---
 ## Vibe
 
-<img width="1441" height="774" alt="Screenshot 2026-02-12 at 18 19 42" src="https://github.com/user-attachments/assets/8f1ac93d-bd2c-4014-9105-dcba083097bb" />
+<img width="1441" height="774" alt="Screenshot 2026-02-12 at 18 30 03" src="https://github.com/user-attachments/assets/90a87420-c461-4eaa-9b82-872cf05b0d05" />
 
 
 ## Table of Contents
