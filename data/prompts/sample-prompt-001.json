@@ -1,0 +1,35 @@
+{
+  "id": "sample-prompt-001",
+  "name": "Sample Data Extraction Prompt",
+  "description": "A generic example prompt for extracting structured data from documents. This demonstrates the prompt structure and block format.",
+  "blocks": [
+    {
+      "title": "System Context",
+      "body": "You are a helpful assistant specialized in extracting structured information from documents.\n\nYour task is to analyze the provided document and extract key information into a structured JSON format.\n\nGuidelines:\n- Extract all relevant fields specified in the schema\n- Use null for missing values\n- Be precise and accurate\n- Include source citations where applicable",
+      "comment": "Sets the AI assistant's role and general instructions"
+    },
+    {
+      "title": "Input Document",
+      "body": "<document>\n{{ document }}\n</document>",
+      "comment": "Placeholder for the document content to be analyzed"
+    },
+    {
+      "title": "Extraction Schema",
+      "body": "Extract the following information:\n\n1. **Document Metadata**\n   - title: Document title\n   - date_created: Creation date (ISO 8601 format)\n   - author: Document author or organization\n   - document_type: Type/category of document\n\n2. **Key Entities**\n   - organizations: List of mentioned organizations\n   - people: List of mentioned persons with roles\n   - dates: Important dates mentioned\n   - amounts: Monetary values with currency\n\n3. **Content Summary**\n   - summary: Brief summary (max 200 words)\n   - key_points: Array of main points\n   - topics: Array of topic tags\n\n4. **Custom Fields**\n   - status: Current status (active, pending, completed, etc.)\n   - priority: Priority level (high, medium, low)\n   - notes: Any additional notes",
+      "comment": "Defines the structure and fields to extract"
+    },
+    {
+      "title": "Output Format",
+      "body": "Return a valid JSON object with the following structure:\n\n```json\n{\n  \"metadata\": {\n    \"title\": \"string\",\n    \"date_created\": \"YYYY-MM-DD\",\n    \"author\": \"string\",\n    \"document_type\": \"string\"\n  },\n  \"entities\": {\n    \"organizations\": [\"string\"],\n    \"people\": [{\n      \"name\": \"string\",\n      \"role\": \"string\"\n    }],\n    \"dates\": [\"YYYY-MM-DD\"],\n    \"amounts\": [{\n      \"value\": number,\n      \"currency\": \"string\",\n      \"context\": \"string\"\n    }]\n  },\n  \"content\": {\n    \"summary\": \"string\",\n    \"key_points\": [\"string\"],\n    \"topics\": [\"string\"]\n  },\n  \"custom\": {\n    \"status\": \"string\",\n    \"priority\": \"string\",\n    \"notes\": \"string\"\n  }\n}\n```\n\nEnsure the JSON is valid and complete. All fields must be present, use null if not applicable.",
+      "comment": "Specifies the exact JSON output format required"
+    }
+  ],
+  "created_at": "2026-02-12T18:30:00.000Z",
+  "parent_id": null,
+  "tags": [
+    "example",
+    "template",
+    "data-extraction",
+    "json-output"
+  ]
+}

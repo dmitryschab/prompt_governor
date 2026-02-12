@@ -98,8 +98,6 @@ def convert_prompt_template(source_data: dict, filename: str) -> dict:
         tags.append("contract")
     if "extraction" in body_text:
         tags.append("extraction")
-    if "ffh" in name_lower:
-        tags.append("ffh")
     if "production" in description.lower():
         tags.append("production")
     if "improved" in name_lower:
